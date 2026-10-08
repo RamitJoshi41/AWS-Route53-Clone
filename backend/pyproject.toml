@@ -1,0 +1,22 @@
+[project]
+name = "route53-backend"
+version = "0.1.0"
+description = "FastAPI backend for the AWS Route53 console clone"
+requires-python = ">=3.10"
+dependencies = [
+    "alembic>=1.20.0",
+    "fastapi>=0.139.0",
+    "pydantic-settings>=2.14.2",
+    "sqlalchemy>=2.0.54",
+    "uvicorn[standard]>=0.51.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
