@@ -15,7 +15,7 @@ graph LR
 *   **SQLite DB:** A single file (`backend/route53.db`) holding all application state, with its schema managed by Alembic.
 
 ### Why proxy instead of calling FastAPI directly?
-The session will be an **httpOnly cookie** (Phase 2). If the browser called `:8000` directly, that would be a cross-origin request: it would need `credentials: "include"`, a non-wildcard CORS origin, and, once frontend and backend are deployed on different domains, `SameSite=None; Secure` third-party cookies, which browsers increasingly block. Proxying makes every API call same-origin, so the cookie "just works" and no CORS preflight is needed.
+The session is an **httpOnly cookie**. If the browser called `:8000` directly, that would be a cross-origin request: it would need `credentials: "include"`, a non-wildcard CORS origin, and, once frontend and backend are deployed on different domains, `SameSite=None; Secure` third-party cookies, which browsers increasingly block. Proxying makes every API call same-origin, so the cookie "just works" and no CORS preflight is needed.
 
 ## Request flow (example: health check)
 
@@ -25,13 +25,58 @@ The session will be an **httpOnly cookie** (Phase 2). If the browser called `:80
 4. The handler executes `SELECT 1`; it returns `200` or `503` with `"database": "error"`.
 5. `apiFetch` returns the JSON, or throws `ApiError(status, detail, body)` for non-2xx; the component maps that to a Cloudscape `StatusIndicator`.
 
+## Authentication
+
+Mocked accounts (one seeded `admin` user), but real session mechanics: bcrypt password hashes, server-side sessions, and an httpOnly cookie.
+
+### Sign in and session restore
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant N as Next.js (proxy.ts + pages)
+    participant A as FastAPI
+    participant D as SQLite
+
+    B->>N: GET / (no cookie)
+    N-->>B: 307 → /login  (proxy.ts, before any page renders)
+    B->>N: POST /api/auth/login {username, password}
+    N->>A: (rewrite)
+    A->>D: SELECT user · bcrypt.checkpw
+    A->>D: DELETE expired sessions · INSERT session (sha256(token), expires_at = now + 12h)
+    A-->>B: 200 {id, username} + Set-Cookie: session=<token>; HttpOnly; SameSite=Lax
+    Note over B: useLogin caches the user → LoginForm redirects to ?next or /
+    B->>N: GET / (cookie)  → proxy.ts lets it through
+    B->>A: GET /api/auth/me (cookie)  via AuthGuard
+    A->>D: SELECT session by sha256(cookie) · check expires_at
+    A-->>B: 200 {id, username} → page renders
+```
+
+A page reload repeats the last three steps. That is the session restore.
+
+### Route protection: two layers in front, one boundary behind
+
+| Layer | Where | Checks | Catches |
+|---|---|---|---|
+| `src/proxy.ts` | Next.js server, before rendering | A `session` cookie **exists** | Logged-out visitors, redirected with no flash of protected UI. Adds `?next=<path+query>`. |
+| `<AuthGuard>` | `(console)` layout, client | `GET /api/auth/me` returns 200 | Expired, forged or logged-out cookies; any later `401` |
+| `get_current_user` | FastAPI dependency | Session row exists and `expires_at > now` | Everything. This is the real security boundary. |
+
+`proxy.ts` deliberately does **not** send cookie holders away from `/login`. With an expired cookie that would loop (proxy → `/`, guard → `/login`, …). The login page asks `/me` instead and only redirects if the session is really valid.
+
+### Frontend auth state
+*   One React Query cache entry, `["me"]`, is the single source of truth: `undefined` = checking, `null` = signed out, `User` = signed in.
+*   `/me` answering `401` is converted to `null` (an answer, not an error), so it never shows as a failure or gets retried.
+*   A global `QueryCache`/`MutationCache` `onError` sets `["me"]` to `null` on **any** `401`, so a session that expires mid-use sends the user to `/login?next=<current page>`.
+*   **Explicit sign out** is different on purpose. After the backend confirms, `useLogout` does a full-page `window.location.replace("/login")`, with no `?next=`, so the next person to sign in doesn't land on the previous user's page. The full reload also discards all of the old user's data held in memory.
+
 ## Frontend Structure (Next.js 16, App Router)
 
-*   **Routing:** App Router (`src/app/`). Layouts will hold the console shell (top nav + side nav) from Phase 5.
+*   **Routing:** App Router (`src/app/`). `/login` is public. Every signed-in page lives in the `(console)` route group, whose layout wraps it in `<AuthGuard>` and the top navigation. Route groups add no URL segment, so the home page is still `/`. `src/proxy.ts` is Next 16's replacement for `middleware.ts`.
 *   **Styling / components:** AWS **Cloudscape Design System**, the open-source design system the real AWS console is built with. `@cloudscape-design/global-styles` is imported once in the root layout (normalize, Open Sans fonts, design tokens). Every Cloudscape component ships with `'use client'`, so server components can render them directly.
 *   **Rendering config:** `cacheComponents` is **disabled** (see DECISIONS.md): Cloudscape calls `Date.now()` during render, which Cache Components rejects at build time.
 *   **API client layer:** `src/lib/api.ts`. `apiFetch<T>()` prefixes `/api`, sends JSON, parses responses safely (including non-JSON proxy errors) and throws a typed `ApiError` carrying the backend's `{"detail": "..."}` message. Components never call `fetch` directly.
-*   **State management:** local component state for UI. React Query will manage server state once data fetching starts (Phase 2/3).
+*   **State management:** TanStack React Query for server state (one `QueryClient` per tab, created in `src/app/providers.tsx`; 4xx errors are never retried). Local component state for UI. Auth hooks live in `src/lib/auth.ts`.
 *   **Component architecture (planned):**
     *   `Layouts`: global shell (top navigation, side navigation, breadcrumbs).
     *   `Pages`: composed views matching Route 53 routes.
@@ -41,10 +86,14 @@ The session will be an **httpOnly cookie** (Phase 2). If the browser called `:80
 
 ```
 backend/
-  main.py          app instance, CORS middleware, routers mounted under /api
-  config.py        Settings (pydantic-settings): DATABASE_URL, CORS_ORIGINS, version
-  database.py      build_engine(), engine, SessionLocal, Base, get_db()
-  routers/         one module per resource (health.py; auth/zones/records to come)
+  main.py          app instance, CORS middleware, 400 validation handler, routers under /api
+  config.py        Settings (pydantic-settings): DATABASE_URL, CORS_ORIGINS, session TTL/cookie
+  database.py      build_engine(), engine, SessionLocal, Base (naming convention), get_db()
+  models.py        ORM models: User, UserSession (+ utcnow helper)
+  schemas.py       Pydantic request/response models (LoginRequest, UserOut)
+  security.py      bcrypt hash/verify, session token generation + SHA-256 hashing
+  dependencies.py  get_current_user (session check for protected endpoints)
+  routers/         one module per resource (health.py, auth.py; zones/records to come)
   alembic/         env.py + versions/ (migration history)
   tests/           pytest, with an isolated temp SQLite DB per test
 ```
@@ -53,15 +102,16 @@ backend/
 *   **Configuration:** a single typed `Settings` object, cached with `lru_cache`. `.env` is read from `backend/` regardless of the working directory.
 *   **Database session:** `get_db()` yields one session per request and always closes it. Tests swap it via `app.dependency_overrides`.
 *   **Sync handlers:** SQLAlchemy is used synchronously, so DB-touching endpoints are declared with `def` (not `async def`). FastAPI runs them in a threadpool, keeping the event loop free.
-*   **Error shape:** every error response is `{"detail": "..."}` (FastAPI's default for `HTTPException`).
-*   **Planned layers:** `models.py` (ORM), `schemas.py` (Pydantic request/response models), service/CRUD functions, and auth dependencies.
+*   **Error shape:** every error response is `{"detail": "..."}`. `HTTPException` produces it natively, and a global `RequestValidationError` handler turns FastAPI's default `422` (a list of error objects) into `400 {"detail": "<field>: <message>"}`.
+*   **Auth dependency:** protected endpoints declare `Depends(get_current_user)` (or `APIRouter(dependencies=[...])` for a whole router). The cookie is read via FastAPI's `APIKeyCookie`, so `/docs` marks protected endpoints with a lock.
+*   **Layers:** routers (HTTP) → `schemas.py` (validation and response shape) → `models.py` (ORM). Service/CRUD functions are added when zone and record logic grows beyond a few lines.
 
 ## Database & Migration Strategy
 
 *   **Engine:** `database.build_engine()` creates the SQLAlchemy engine. For SQLite it sets `check_same_thread=False` (sessions are used from FastAPI's threadpool) and runs `PRAGMA foreign_keys=ON` on every new connection, since SQLite ignores `FOREIGN KEY`/`ON DELETE CASCADE` without it.
 *   **Single source of truth:** the default `DATABASE_URL` is an absolute path to `backend/route53.db`, so the API and Alembic always use the same file whatever the current directory. `alembic.ini` deliberately contains no URL; `alembic/env.py` imports the app's `engine` and `Base.metadata`.
 *   **Migrations:** every schema change is a revision in `alembic/versions/`. `uv run alembic upgrade head` creates or upgrades the DB. `render_as_batch=True` makes Alembic rebuild tables for column changes SQLite can't `ALTER`.
-*   **Current state:** revision `0001` (baseline) is intentionally empty and only creates the database file. Feature tables arrive with their phases (users/sessions in Phase 2, hosted zones in Phase 3, records in Phase 4).
+*   **Current state:** revision `0002`. `0001` (baseline) is empty and only creates the database file. `0002` adds `users` and `sessions` and seeds the demo user. Hosted zones arrive in Phase 3, records in Phase 4.
 
 ## Why This Stack?
 *   **Next.js + TS:** industry standard for scalable React apps. TypeScript prevents runtime errors and acts as documentation.

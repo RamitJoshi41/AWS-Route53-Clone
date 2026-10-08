@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 // Cloudscape's global CSS: normalize, Open Sans fonts and design tokens. Imported once, here.
 import "@cloudscape-design/global-styles/index.css";
 
+import Providers from "./providers";
+
 export const metadata: Metadata = {
   title: {
     default: "Route 53 | Global",
@@ -15,7 +17,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en">
       {/* Browser extensions often inject attributes on <body> before hydration (e.g. class="vc-init").
           This only silences attribute mismatches on <body> itself, not inside {children}. */}
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

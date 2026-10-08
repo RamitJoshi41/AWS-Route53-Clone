@@ -5,6 +5,7 @@ description = "FastAPI backend for the AWS Route53 console clone"
 requires-python = ">=3.10"
 dependencies = [
     "alembic>=1.20.0",
+    "bcrypt>=5.0.0",
     "fastapi>=0.139.0",
     "pydantic-settings>=2.14.2",
     "sqlalchemy>=2.0.54",

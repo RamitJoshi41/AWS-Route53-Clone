@@ -9,6 +9,13 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from database import Base, build_engine, get_db
 from main import app
+from models import User
+from security import hash_password
+
+# Test databases are built with create_all (not migrations), so the seeded admin
+# doesn't exist here; the `user` fixture creates its own known account.
+TEST_USERNAME = "alice"
+TEST_PASSWORD = "correct-horse-battery"
 
 
 @pytest.fixture
@@ -33,3 +40,23 @@ def client(db_session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def user(db_session_factory: sessionmaker[Session]) -> User:
+    """A user with a known password (TEST_USERNAME / TEST_PASSWORD)."""
+    with db_session_factory() as db:
+        new_user = User(username=TEST_USERNAME, password_hash=hash_password(TEST_PASSWORD))
+        db.add(new_user)
+        db.commit()
+        return new_user
+
+
+@pytest.fixture
+def logged_in_client(client: TestClient, user: User) -> TestClient:
+    """The same TestClient after a successful login; its cookie jar holds the session."""
+    response = client.post(
+        "/api/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD}
+    )
+    assert response.status_code == 200
+    return client

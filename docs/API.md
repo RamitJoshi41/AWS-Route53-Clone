@@ -2,9 +2,36 @@
 
 Base URL: `/api` (or relative if proxied).
 
-In development the frontend calls `http://localhost:3000/api/...`, which Next.js proxies to FastAPI on `http://localhost:8000/api/...`. Errors always use the shape `{"detail": "..."}`. Interactive OpenAPI docs: `http://localhost:8000/docs`.
+In development the frontend calls `http://localhost:3000/api/...`, which Next.js proxies to FastAPI on `http://localhost:8000/api/...`. Interactive OpenAPI docs: `http://localhost:8000/docs`.
 
-> Sections below Health are the draft design; they are finalized (e.g. `PUT` vs `PATCH`, field names) as each phase is implemented.
+> Sections below Authentication are the draft design; they are finalized (e.g. `PUT` vs `PATCH`, field names) as each phase is implemented.
+
+## Conventions
+
+### Errors
+Every error response has the same shape: a JSON object with a single string `detail`.
+
+| Status | Meaning | Example `detail` |
+|---|---|---|
+| `400` | Request body/query failed validation, or is not valid JSON | `"password: Field required"` |
+| `401` | No session cookie, unknown/logged-out session, expired session, or bad credentials | `"Not authenticated"` |
+| `404` | Resource not found | `"Hosted zone not found"` |
+| `409` | Conflict with existing data | — |
+
+**Validation errors are `400`, not FastAPI's default `422`.** A global handler (`backend/main.py`) reports the first problem as `"<field>: <message>"`, e.g. `"username: String should have at least 1 character"`. Malformed JSON gives `"body: JSON decode error"`.
+
+### Authentication
+Protected endpoints require the `session` cookie set by `POST /auth/login`. Browsers send it automatically (requests are same-origin through the Next.js proxy). With curl, keep it in a cookie jar: `-c jar.txt` to save it, `-b jar.txt` to send it. Any protected endpoint answers `401` without a valid, unexpired session.
+
+| Cookie attribute | Value | Why |
+|---|---|---|
+| Name | `session` | `SESSION_COOKIE_NAME` |
+| Value | 256-bit random token (URL-safe base64) | Only its SHA-256 hash is stored in the `sessions` table |
+| `HttpOnly` | yes | JavaScript can't read it, so XSS can't steal it |
+| `SameSite` | `Lax` | Not sent on cross-site POSTs (CSRF protection) |
+| `Path` | `/` | Sent to every route |
+| `Max-Age` | `43200` (12 h) | `SESSION_TTL_HOURS`; expiry is also enforced server-side |
+| `Secure` | off by default | `COOKIE_SECURE=true` when served over HTTPS |
 
 ## Health
 
@@ -18,21 +45,43 @@ Checks that the API is running and the database answers a `SELECT 1`.
 
 ## Authentication
 
-### `POST /auth/login`
-Authenticates a user.
-*   **Request Body:** `{"username": "user", "password": "password"}`
-*   **Response (200):** `{"message": "Logged in successfully"}` (Sets HTTP-only session cookie)
-*   **Response (401):** `{"detail": "Invalid credentials"}`
-*   **Curl:** `curl -X POST http://localhost:8000/api/auth/login -H "Content-Type: application/json" -d '{"username": "admin", "password": "password"}'`
+Default account (seeded by migration `0002`): **`admin` / `password123`**.
 
-### `POST /auth/logout`
-Logs out the current user.
-*   **Response (200):** `{"message": "Logged out"}` (Clears session cookie)
+### `POST /auth/login` ✅ implemented
+Verifies the username and password, creates a session, and sets the `session` cookie.
+*   **Auth:** none
+*   **Request body:**
+    ```json
+    {"username": "admin", "password": "password123"}
+    ```
+    `username`: 1–150 characters. `password`: at least 1 character and at most **72 bytes** UTF-8 (bcrypt's limit).
+*   **Response (200):** the logged-in user, plus a `Set-Cookie` header:
+    ```json
+    {"id": 1, "username": "admin"}
+    ```
+    ```
+    set-cookie: session=<token>; HttpOnly; Max-Age=43200; Path=/; SameSite=lax
+    ```
+*   **Response (401):** `{"detail": "Invalid username or password"}`. This is the same message for an unknown username and a wrong password, so the API doesn't reveal which usernames exist. No cookie is set.
+*   **Response (400):** invalid body, e.g. `{"detail": "password: Field required"}`
+*   **Side effects:** deletes all expired sessions, and the caller's previous session if it sent one (a fresh token on every login).
+*   **Curl:** `curl -i -c jar.txt -X POST http://localhost:8000/api/auth/login -H "Content-Type: application/json" -d '{"username": "admin", "password": "password123"}'`
 
-### `GET /auth/me`
-Gets the current authenticated user's profile.
+### `POST /auth/logout` ✅ implemented
+Ends the session: deletes its row from `sessions` and clears the cookie. Idempotent: it succeeds even without a cookie or with an already-invalid one, so the frontend can always call it.
+*   **Auth:** optional
+*   **Request body:** none
+*   **Response (204):** no body, plus `set-cookie: session=""; Max-Age=0; HttpOnly; Path=/; SameSite=lax`
+*   **Curl:** `curl -i -b jar.txt -c jar.txt -X POST http://localhost:8000/api/auth/logout`
+
+### `GET /auth/me` ✅ implemented
+Returns the user who owns the current session. The frontend calls it on every page load to restore the login after a refresh.
+*   **Auth:** required
 *   **Response (200):** `{"id": 1, "username": "admin"}`
-*   **Response (401):** `{"detail": "Not authenticated"}`
+*   **Response (401):**
+    *   `{"detail": "Not authenticated"}`: no cookie, or the token matches no session (forged or logged out)
+    *   `{"detail": "Session expired"}`: the session exists but is past `expires_at`. The row is deleted.
+*   **Curl:** `curl -b jar.txt http://localhost:8000/api/auth/me`
 
 ---
 

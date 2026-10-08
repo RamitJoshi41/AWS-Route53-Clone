@@ -11,14 +11,14 @@ This document breaks down the implementation of the Route53 clone into phased, t
     *   Configure CORS and basic API routing between frontend and backend.
 *   **Definition of Done:** Both servers run locally, and the frontend can successfully ping a backend health-check endpoint. Database file is created.
 
-## Phase 2: Authentication (Mocked)
+## Phase 2: Authentication (Mocked) ✅ (2026-10-09)
 **Goal:** Implement a simple session-based auth flow to secure the application.
 *   **Tasks:**
-    *   Create backend `users` and `sessions` tables.
-    *   Implement `/api/auth/login`, `/logout`, and `/me` endpoints.
-    *   Create frontend Login page.
-    *   Implement frontend authentication state and protected routes.
-*   **Definition of Done:** User can log in with hardcoded/mock credentials, receive a session cookie, view a protected page, and log out.
+    *   Create backend `users` and `sessions` tables. *(Migration `0002`, which also seeds `admin` / `password123`.)*
+    *   Implement `/api/auth/login`, `/logout`, and `/me` endpoints. *(bcrypt, SHA-256-hashed session tokens, httpOnly cookie, 12 h fixed expiry, global 400 validation handler; 21 pytest cases.)*
+    *   Create frontend Login page. *(Cloudscape form, `?next=` with open-redirect protection.)*
+    *   Implement frontend authentication state and protected routes. *(React Query `["me"]`; `proxy.ts` + `<AuthGuard>`; top navigation with Sign out.)*
+*   **Definition of Done:** User can log in with hardcoded/mock credentials, receive a session cookie, refresh and stay logged in, view a protected page (unauthenticated users are redirected to login), and log out (cookie cleared, session invalidated, back on the login page). Unauthenticated API calls return 401.
 
 ## Phase 3: Hosted Zones Core (CRUD)
 **Goal:** Allow users to manage their Hosted Zones.

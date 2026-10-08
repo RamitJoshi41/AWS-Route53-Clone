@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     # direct cross-origin calls and deployed setups.
     cors_origins: str = "http://localhost:3000"
 
+    # Sessions: fixed lifetime (no sliding renewal); the cookie's Max-Age matches it.
+    session_ttl_hours: int = 12
+    session_cookie_name: str = "session"
+    # Browsers drop Secure cookies on plain http://localhost, so this is off for local dev
+    # and must be turned on wherever the app is served over HTTPS.
+    cookie_secure: bool = False
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

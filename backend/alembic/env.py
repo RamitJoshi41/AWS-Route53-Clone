@@ -8,11 +8,9 @@ from logging.config import fileConfig
 
 from alembic import context
 
+import models  # noqa: F401  (registers the tables on Base.metadata for autogenerate)
 from config import get_settings
 from database import Base, engine
-
-# Model modules must be imported here so autogenerate can see their tables, e.g.:
-# import models  # noqa: F401
 
 config = context.config
 

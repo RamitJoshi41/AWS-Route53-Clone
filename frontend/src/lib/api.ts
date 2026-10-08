@@ -58,3 +58,31 @@ export type HealthStatus = {
 export function getHealth(signal?: AbortSignal): Promise<HealthStatus> {
   return apiFetch<HealthStatus>("/health", { signal });
 }
+
+// --- Auth (backend/routers/auth.py) ---
+// The session token lives in an httpOnly cookie: this code never sees it. The
+// browser stores it from login's Set-Cookie and sends it with every /api request.
+
+export type User = {
+  id: number;
+  username: string;
+};
+
+export type LoginCredentials = {
+  username: string;
+  password: string;
+};
+
+export function login(credentials: LoginCredentials): Promise<User> {
+  return apiFetch<User>("/auth/login", { method: "POST", body: JSON.stringify(credentials) });
+}
+
+/** Always 204, even without a session; the backend deletes the session and clears the cookie. */
+export function logout(): Promise<null> {
+  return apiFetch<null>("/auth/logout", { method: "POST" });
+}
+
+/** The logged-in user; throws ApiError(401) without a valid session. */
+export function getCurrentUser(signal?: AbortSignal): Promise<User> {
+  return apiFetch<User>("/auth/me", { signal });
+}
