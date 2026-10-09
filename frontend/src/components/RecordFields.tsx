@@ -141,7 +141,7 @@ export default function RecordFields({
                   ariaLabel="Record name"
                 />
               </div>
-              <span className={styles.zoneSuffix}>.{displayName(zoneName)}</span>
+              <span className={styles.zoneSuffix}>{displayName(zoneName)}</span>
             </div>
           </FormField>
         )}

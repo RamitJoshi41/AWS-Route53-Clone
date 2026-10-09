@@ -1,10 +1,11 @@
 /* The record form's compound fields, measured from the console (screenshots 04, Creating_Multiple_REcords). */
 
-/* Record name: the input takes about half the column, followed by ".zone-name". */
+/* Record name: the input takes about half the column, then the zone name, 20px
+   after it and without a leading dot (screenshot 04). */
 .nameRow {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 20px;
 }
 
 .nameInput {
