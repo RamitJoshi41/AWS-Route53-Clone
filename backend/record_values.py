@@ -9,8 +9,10 @@ exactly what the console's Value box takes (one value per line):
     TXT    "Sample Text Entries"            SRV    1 10 5269 xmpp-server.example.com
     CAA    0 issue "caa.example.com"        SOA    ns.example.net. hostmaster.example.com. 1 7200 900 1209600 86400
 
-Like Route 53, the checks run on the server and a failure is reported in its
-"Invalid Resource Record" style. The "Format: ..." hints are the console's own.
+Like Route 53, the checks run on the server, and a failure reads like Route 53's,
+which the console shows in its error banner:
+    ARRDATAIllegalIPv4Address (Value is not a valid IPv4 address) encountered with 'abc'
+The "Format: ..." hints are the console's own.
 """
 
 import ipaddress
@@ -36,7 +38,7 @@ QUOTES_PROBLEM = "InvalidCharacterString (Value should be enclosed in quotation 
 
 
 def _invalid(problem: str, value: str) -> ValueError:
-    return ValueError(f"Invalid Resource Record: FATAL problem: {problem} encountered with '{value}'")
+    return ValueError(f"{problem} encountered with '{value}'")
 
 
 def _host(value: str, whole: str) -> str:
@@ -191,7 +193,7 @@ def normalize_values(record_type: str, values: list[str]) -> list[str]:
     for raw in values:
         value = raw.strip()
         if not value:
-            raise ValueError("Invalid Resource Record: a value is empty. Enter one value per line.")
+            raise ValueError("A value is empty. Enter one value per line.")
         value = normalize(value)
         if record_type == "AAAA":  # 2001:db8::1 and 2001:0DB8:0::1 are the same address
             key = str(ipaddress.IPv6Address(value))

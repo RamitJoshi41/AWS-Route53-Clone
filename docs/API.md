@@ -7,7 +7,13 @@ In development the frontend calls `http://localhost:3000/api/...`, which Next.js
 ## Conventions
 
 ### Errors
-Every error response has the same shape: a JSON object with a single string `detail`.
+Every error response has the same shape: a JSON object with a string `detail`. A few errors also carry a `code`, so the frontend can tell them apart without parsing the message (the console's error banner has its own text for them):
+
+| `code` | When | Banner line in the console |
+|---|---|---|
+| `RecordSetAlreadyExists` | Creating, renaming or retyping a record onto a name + type that already exists (`409`) | "A record with the specified name already exists." |
+
+All other errors have no `code`; the console shows "Please try again later." for them.
 
 | Status | Meaning | Example `detail` |
 |---|---|---|
@@ -226,8 +232,8 @@ The same rules Route 53 applies with simple routing:
 *   **One record set per name and type** in a zone. A second one is `409`: `Tried to create resource record set [name='www.example.com.', type='A'] but it already exists`. The database enforces this too (`UNIQUE(zone_id, name, type)`).
 *   **The name must be in the zone:** `www.example.com` or the apex `example.com` in zone `example.com.`; otherwise `400 RRSet with DNS name www.other.com. is not permitted in zone example.com.` Labels may use `a-z`, `0-9`, `-` and `_` (for `_dmarc`, `_sip._tcp`); `*` only as the whole first label.
 *   **CNAME:** not at the zone apex (`400 … is not permitted at apex in zone example.com.`), exactly one value (`400`), and no other record can share its name (`409 … conflicts with other records with the same DNS name …` or `409 … a conflicting RRSet of type CNAME with the same DNS name already exists …`).
-*   **The SOA record and the apex NS record can't be deleted** (`400 A HostedZone must contain exactly one SOA record.` / `400 A HostedZone must contain at least one NS record for the zone itself.`). Both can be edited. NS records for subdomains (delegations) can be created and deleted freely.
-*   **Values**, checked per type by `backend/record_values.py`. A broken value is a `400` in Route 53's style, `Invalid Resource Record: FATAL problem: <problem> encountered with '<value>'`:
+*   **The SOA record and the apex NS record can't be deleted, renamed or retyped** (`400 A HostedZone must contain exactly one SOA record.` / `400 A HostedZone must contain at least one NS record for the zone itself.`). Their TTL and values can be edited. NS records for subdomains (delegations) can be created and deleted freely.
+*   **Values**, checked per type by `backend/record_values.py`. A broken value is a `400` in Route 53's wording, exactly what the console prints in its error banner: `<problem> encountered with '<value>'`, e.g. `ARRDATAIllegalIPv4Address (Value is not a valid IPv4 address) encountered with 'abc'`:
 
     | Type | Format (the console's placeholder) | Checks |
     |---|---|---|
@@ -243,7 +249,7 @@ The same rules Route 53 applies with simple routing:
     Surrounding spaces are trimmed, extra spaces between fields collapse to one, and leading zeros in numbers are dropped (`010` → `10`). A value listed twice is `400 Duplicate Resource Record: '<value>'` (case-insensitive except inside TXT/CAA text; IPv6 addresses compare by value).
 
 ### `GET /zones/{id}/records` ✅ implemented
-The zone's records, in creation order (the default NS and SOA first). The same list is also part of `GET /zones/{id}`.
+The zone's records in the console's order: by name in DNS order (labels read from the right, so the apex comes first and each name is followed by its subdomains), then by type, so a zone starts with its NS and SOA records. The same list is also part of `GET /zones/{id}`.
 *   **Response (200):** `[<record>, ...]`
 *   **Curl:** `curl -b jar.txt http://localhost:8000/api/zones/Z0GLN2OXWU6NXVLK4MRVZ/records`
 
@@ -263,10 +269,11 @@ Creates one or more records, **all or none**: the console's "Create records" but
 *   **Curl:** `curl -b jar.txt -X POST http://localhost:8000/api/zones/Z0GLN2OXWU6NXVLK4MRVZ/records -H "Content-Type: application/json" -d '{"records": [{"name": "www.example.com", "type": "A", "ttl": 300, "values": ["192.0.2.1"]}]}'`
 
 ### `PATCH /zones/{id}/records/{record_id}` ✅ implemented
-Edits a record's TTL and/or values. As in the console's edit panel, the name and type can't change (sending them is `400 … Extra inputs are not permitted`). Only the fields sent are changed.
-*   **Request body:** `{"ttl": 60, "values": ["192.0.2.1"]}`. Both optional; `values` replaces the whole list and is checked against the record's type.
-*   **Response (200):** the updated record.
-*   **Response (400):** a broken value rule; **(404)** `No record found with ID: 42` (also for a record of another zone).
+Edits a record: any of the fields of the console's edit panel. Only the fields sent are changed.
+*   **Request body:** `{"name": "web.example.com", "type": "A", "ttl": 60, "values": ["192.0.2.1"]}`, every field optional. `values` replaces the whole list.
+*   **Renaming or retyping** works like Route 53's delete + create in one change: the new name + type is checked like a new record set against every *other* record (`409` if it exists, CNAME rules), and the values, sent or current, must suit the new type. The SOA and apex NS records keep their name and type (`400`, as for deleting them).
+*   **Response (200):** the updated record. Saving without changes also succeeds (the console shows its normal success banner).
+*   **Response (400):** a broken value or rule; **(409)** name + type taken, or a CNAME conflict; **(404)** `No record found with ID: 42` (also for a record of another zone).
 *   **Curl:** `curl -b jar.txt -X PATCH http://localhost:8000/api/zones/Z0GLN2OXWU6NXVLK4MRVZ/records/5 -H "Content-Type: application/json" -d '{"ttl": 60}'`
 
 ### `DELETE /zones/{id}/records/{record_id}` ✅ implemented

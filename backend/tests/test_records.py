@@ -41,6 +41,25 @@ def test_new_zone_lists_its_ns_and_soa(logged_in_client: TestClient, zone: dict)
     ]
 
 
+def test_records_are_listed_in_dns_order(logged_in_client: TestClient, zone: dict) -> None:
+    """As in the console: the apex first (NS before SOA), then names by their labels
+    read from the right, whatever order they were created in."""
+    post_records(
+        logged_in_client, zone["id"],
+        rec(name="test55.example.com"), rec(name="test456.example.com"), rec(name="a.test55.example.com"),
+        rec(name="example.com", type="TXT", values=['"x"']), rec(name="test345.example.com"),
+    )
+    expected = [
+        ("example.com.", "NS"), ("example.com.", "SOA"), ("example.com.", "TXT"),
+        ("test345.example.com.", "A"), ("test456.example.com.", "A"),
+        ("test55.example.com.", "A"), ("a.test55.example.com.", "A"),
+    ]
+    listed = logged_in_client.get(records_url(zone["id"])).json()
+    assert [(r["name"], r["type"]) for r in listed] == expected
+    details = logged_in_client.get(f"/api/zones/{zone['id']}").json()["records"]
+    assert [(r["name"], r["type"]) for r in details] == expected
+
+
 # --- Create ---------------------------------------------------------------------
 
 
@@ -112,7 +131,8 @@ def test_duplicate_name_and_type_is_409(logged_in_client: TestClient, zone: dict
     response = post_records(logged_in_client, zone["id"], rec(name="WWW.example.com.", values=["192.0.2.9"]))
     assert response.status_code == 409
     assert response.json() == {
-        "detail": "Tried to create resource record set [name='www.example.com.', type='A'] but it already exists"
+        "detail": "Tried to create resource record set [name='www.example.com.', type='A'] but it already exists",
+        "code": "RecordSetAlreadyExists",  # the console banner has its own line for this one
     }
 
 
@@ -235,12 +255,78 @@ def test_update_validates_values_by_the_records_type(logged_in_client: TestClien
     assert logged_in_client.patch(url, json={"values": ["a..b"]}).status_code == 400
 
 
-@pytest.mark.parametrize("field", [{"name": "x.example.com"}, {"type": "TXT"}])
-def test_name_and_type_cannot_change(logged_in_client: TestClient, zone: dict, field: dict) -> None:
+def test_rename_and_retype_a_record(logged_in_client: TestClient, zone: dict) -> None:
     [created] = post_records(logged_in_client, zone["id"], rec()).json()
-    response = logged_in_client.patch(f"{records_url(zone['id'])}/{created['id']}", json=field)
+    url = f"{records_url(zone['id'])}/{created['id']}"
+
+    renamed = logged_in_client.patch(url, json={"name": "web.example.com"})
+    assert renamed.status_code == 200
+    assert renamed.json() == {**created, "name": "web.example.com."}
+
+    retyped = logged_in_client.patch(url, json={"type": "TXT", "values": ['"now text"']})
+    assert retyped.json() == {**created, "name": "web.example.com.", "type": "TXT", "values": ['"now text"']}
+
+
+def test_retype_checks_the_current_values_against_the_new_type(logged_in_client: TestClient, zone: dict) -> None:
+    [created] = post_records(logged_in_client, zone["id"], rec()).json()
+    response = logged_in_client.patch(f"{records_url(zone['id'])}/{created['id']}", json={"type": "AAAA"})
     assert response.status_code == 400
-    assert "Extra inputs are not permitted" in response.json()["detail"]
+    assert "AAAARRDATAIllegalIPv6Address" in response.json()["detail"]
+
+
+def test_rename_onto_an_existing_record_set_is_409(logged_in_client: TestClient, zone: dict) -> None:
+    first, second = post_records(logged_in_client, zone["id"], rec(name="a.example.com"), rec(name="b.example.com")).json()
+    response = logged_in_client.patch(f"{records_url(zone['id'])}/{second['id']}", json={"name": "a.example.com"})
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "Tried to create resource record set [name='a.example.com.', type='A'] but it already exists",
+        "code": "RecordSetAlreadyExists",
+    }
+
+
+def test_rename_into_a_cname_name_is_409(logged_in_client: TestClient, zone: dict) -> None:
+    post_records(logged_in_client, zone["id"], rec(name="alias.example.com", type="CNAME", values=["x.example.net"]))
+    [record] = post_records(logged_in_client, zone["id"], rec(name="b.example.com")).json()
+    response = logged_in_client.patch(f"{records_url(zone['id'])}/{record['id']}", json={"name": "alias.example.com"})
+    assert response.status_code == 409
+    assert "conflicting RRSet of type CNAME" in response.json()["detail"]
+
+
+def test_a_cname_may_keep_its_own_name(logged_in_client: TestClient, zone: dict) -> None:
+    """Saving a CNAME unchanged doesn't count as conflicting with itself."""
+    [cname] = post_records(logged_in_client, zone["id"], rec(type="CNAME", values=["x.example.net"])).json()
+    response = logged_in_client.patch(
+        f"{records_url(zone['id'])}/{cname['id']}",
+        json={"name": "www.example.com", "type": "CNAME", "ttl": 300, "values": ["y.example.net"]},
+    )
+    assert response.status_code == 200
+    assert response.json()["values"] == ["y.example.net"]
+
+
+@pytest.mark.parametrize(
+    ("type", "change", "message"),
+    [
+        ("SOA", {"name": "x.example.com"}, SOA_REQUIRED_MESSAGE),
+        ("NS", {"name": "x.example.com"}, APEX_NS_REQUIRED_MESSAGE),
+        ("NS", {"type": "TXT", "values": ['"x"']}, APEX_NS_REQUIRED_MESSAGE),
+    ],
+)
+def test_soa_and_apex_ns_keep_their_name_and_type(
+    logged_in_client: TestClient, zone: dict, type: str, change: dict, message: str
+) -> None:
+    record = find(zone["records"], "example.com.", type)
+    response = logged_in_client.patch(f"{records_url(zone['id'])}/{record['id']}", json=change)
+    assert response.status_code == 400
+    assert response.json() == {"detail": message}
+
+
+def test_apex_ns_can_be_saved_with_its_own_name_and_type(logged_in_client: TestClient, zone: dict) -> None:
+    ns = find(zone["records"], "example.com.", "NS")
+    response = logged_in_client.patch(
+        f"{records_url(zone['id'])}/{ns['id']}", json={"name": "example.com", "type": "NS", "ttl": 3600}
+    )
+    assert response.status_code == 200
+    assert response.json() == {**ns, "ttl": 3600}
 
 
 def test_update_unknown_record_is_404(logged_in_client: TestClient, zone: dict) -> None:

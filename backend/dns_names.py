@@ -92,3 +92,10 @@ def check_host_name(raw: str) -> None:
     Unlike a zone name, a single label ("localhost") is allowed.
     """
     _check_name(raw, _HOST_LABEL, "a-z, 0-9, hyphens and underscores")
+
+
+def dns_order(name: str) -> tuple[str, ...]:
+    """Sort key that lists names the way Route 53 does: by their labels read from
+    the right, so a zone's apex comes first and each name is followed by its
+    subdomains ("example.com." < "a.example.com." < "www.example.com.")."""
+    return tuple(reversed(name.rstrip(".").split(".")))

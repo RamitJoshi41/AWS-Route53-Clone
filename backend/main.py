@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from config import get_settings
+from errors import CodedHTTPException, coded_http_exception_handler
 from routers import auth, health, records, vpcs, zones
 
 settings = get_settings()
@@ -35,6 +36,8 @@ async def validation_error_handler(_request: Request, exc: RequestValidationErro
     message = error["msg"].removeprefix("Value error, ")
     return JSONResponse(status_code=400, content={"detail": f"{field}: {message}"})
 
+
+app.add_exception_handler(CodedHTTPException, coded_http_exception_handler)
 
 app.include_router(health.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")

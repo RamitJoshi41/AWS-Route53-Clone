@@ -65,8 +65,8 @@ def test_invalid_values_raise_route53_style_errors(record_type: str, raw: str, m
     with pytest.raises(ValueError) as error:
         normalize_values(record_type, [raw])
     message = str(error.value)
-    assert message.startswith("Invalid Resource Record: ")
     assert message_part in message
+    assert message.endswith(f"encountered with '{raw}'")  # the console banner's format
 
 
 def test_txt_string_of_255_characters_is_accepted() -> None:
@@ -97,5 +97,5 @@ def test_txt_values_differing_in_case_are_not_duplicates() -> None:
 
 
 def test_empty_value_is_rejected() -> None:
-    with pytest.raises(ValueError, match="a value is empty"):
+    with pytest.raises(ValueError, match="A value is empty"):
         normalize_values("A", ["192.0.2.1", "   "])

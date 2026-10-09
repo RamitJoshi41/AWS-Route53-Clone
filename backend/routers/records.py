@@ -23,7 +23,7 @@ def list_records(
     zone_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> list[RecordOut]:
     zone = zone_service.get_zone_or_404(db, user, zone_id)
-    return [RecordOut.model_validate(record) for record in zone.records]
+    return RecordOut.in_console_order(zone.records)
 
 
 @router.post("", response_model=list[RecordOut], status_code=status.HTTP_201_CREATED)
@@ -50,7 +50,7 @@ def update_record(
 ) -> RecordOut:
     zone = zone_service.get_zone_or_404(db, user, zone_id)
     record = record_service.get_record_or_404(zone, record_id)
-    return RecordOut.model_validate(record_service.update_record(db, record, body))
+    return RecordOut.model_validate(record_service.update_record(db, zone, record, body))
 
 
 @router.delete("/{record_id}", status_code=status.HTTP_204_NO_CONTENT)

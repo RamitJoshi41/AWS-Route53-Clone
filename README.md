@@ -184,7 +184,7 @@ All endpoints live under `/api`. Errors use the shape `{"detail": "..."}`. Valid
 | GET | `/api/vpcs` | ✅ | The mocked Regions and VPCs offered for private zones |
 | GET | `/api/zones/{id}/records` | ✅ | The zone's records |
 | POST | `/api/zones/{id}/records` | ✅ | Create one or more records, all or none → `201`; `400` invalid value/name; `409` duplicate name + type or CNAME conflict |
-| PATCH | `/api/zones/{id}/records/{rid}` | ✅ | Change a record's TTL and/or values (name and type are fixed) |
+| PATCH | `/api/zones/{id}/records/{rid}` | ✅ | Edit a record: name, type, TTL, values (SOA and apex NS keep their name and type) |
 | DELETE | `/api/zones/{id}/records/{rid}` | ✅ | `204`; `400` for the SOA record and the apex NS record |
 | POST | `/api/zones/{id}/records/batch-delete` | ✅ | Delete several records, all or none → `204` |
 

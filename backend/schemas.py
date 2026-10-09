@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
+from dns_names import dns_order
 from models import DnsRecord, HostedZone
 from record_values import MAX_INT32
 from security import BCRYPT_MAX_PASSWORD_BYTES
@@ -119,6 +120,13 @@ class RecordOut(BaseModel):
     # Stored in the `rdata` column (see models.DnsRecord).
     values: list[str] = Field(validation_alias="rdata")
 
+    @classmethod
+    def in_console_order(cls, records: list[DnsRecord]) -> list["RecordOut"]:
+        """Records sorted as the console lists them: by name in DNS order, then type
+        (so a zone starts with its NS and SOA records)."""
+        ordered = sorted(records, key=lambda r: (dns_order(r.name), r.type))
+        return [cls.model_validate(record) for record in ordered]
+
 
 # --- Records --------------------------------------------------------------------
 
@@ -153,11 +161,15 @@ class RecordBatchCreate(BaseModel):
 
 
 class RecordUpdate(BaseModel):
-    """PATCH body. A record's name and type can't change (the console's edit panel
-    shows them read-only), so only the TTL and the values can. Omitted fields stay."""
+    """PATCH body: any of the fields the console's edit panel has. Omitted fields stay.
+
+    Changing the name or type is allowed (Route 53 does it as delete + create in one
+    change), except for the SOA and apex NS records, whose panel shows them read-only."""
 
     model_config = ConfigDict(extra="forbid")
 
+    name: str | None = Field(default=None, max_length=1024)
+    type: CreatableRecordType | None = None
     ttl: Ttl | None = None
     values: RecordValues | None = None
 
@@ -220,7 +232,7 @@ class ZoneDetailOut(ZoneOut):
         return cls(
             **base.model_dump(),
             name_servers=list(apex_ns.rdata) if apex_ns else [],
-            records=[RecordOut.model_validate(r) for r in records],
+            records=RecordOut.in_console_order(records),
         )
 
 
