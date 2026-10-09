@@ -246,3 +246,30 @@ class VpcCatalogOut(BaseModel):
 
     regions: list[RegionOut]
     vpcs: list[VpcOut]
+
+
+# --- Changes --------------------------------------------------------------------
+
+
+class ChangeInfoOut(BaseModel):
+    """Route 53's ChangeInfo: what the console's "View status" page shows."""
+
+    id: str
+    zone_id: str
+    status: Literal["PENDING", "INSYNC"]
+    submitted_at: datetime
+    comment: str | None
+
+
+class RecordsCreatedOut(BaseModel):
+    """POST /records: the new records, and the change that created them."""
+
+    records: list[RecordOut]
+    change_info: ChangeInfoOut
+
+
+class RecordUpdatedOut(BaseModel):
+    """PATCH /records/{id}: the record as saved, and the change that saved it."""
+
+    record: RecordOut
+    change_info: ChangeInfoOut

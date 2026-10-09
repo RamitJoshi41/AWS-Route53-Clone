@@ -21,9 +21,10 @@ from sqlalchemy.orm import Session
 
 from dns_names import normalize_record_name
 from errors import RECORD_SET_ALREADY_EXISTS, CodedHTTPException
-from models import DnsRecord, HostedZone
+from models import Change, DnsRecord, HostedZone
 from record_values import normalize_values
 from schemas import RecordCreate, RecordUpdate
+from services.changes import record_change
 
 SOA_REQUIRED_MESSAGE = "A HostedZone must contain exactly one SOA record."
 APEX_NS_REQUIRED_MESSAGE = "A HostedZone must contain at least one NS record for the zone itself."
@@ -118,10 +119,12 @@ def get_record_or_404(zone: HostedZone, record_id: int) -> DnsRecord:
     return record
 
 
-def create_records(db: Session, zone: HostedZone, items: list[RecordCreate]) -> list[DnsRecord]:
+def create_records(
+    db: Session, zone: HostedZone, items: list[RecordCreate]
+) -> tuple[list[DnsRecord], Change]:
     """Create every record in `items`, or none of them (Route 53 applies a change
-    batch atomically). Each item is checked against the zone's existing records
-    and the items before it."""
+    batch atomically), as one change. Each item is checked against the zone's
+    existing records and the items before it."""
     types_at = _types_by_name(zone.records)
     in_request: set[tuple[str, str]] = set()
 
@@ -142,13 +145,17 @@ def create_records(db: Session, zone: HostedZone, items: list[RecordCreate]) -> 
         new_records.append(DnsRecord(name=name, type=item.type, ttl=item.ttl, rdata=values))
 
     zone.records.extend(new_records)
+    change = record_change(db, zone)
     _commit(db)
-    return new_records
+    return new_records, change
 
 
-def update_record(db: Session, zone: HostedZone, record: DnsRecord, data: RecordUpdate) -> DnsRecord:
-    """Apply the fields sent. A new name or type is checked like a new record set,
-    against every other record in the zone."""
+def update_record(
+    db: Session, zone: HostedZone, record: DnsRecord, data: RecordUpdate
+) -> tuple[DnsRecord, Change]:
+    """Apply the fields sent, as one change. A new name or type is checked like a
+    new record set, against every other record in the zone. Saving without changes
+    still succeeds (and counts as a change), as in the console."""
     name = data.name if data.name is not None else record.name
     record_type = data.type or record.type
     # The current values are checked again too: after a type change they must
@@ -166,8 +173,9 @@ def update_record(db: Session, zone: HostedZone, record: DnsRecord, data: Record
     record.name, record.type, record.rdata = name, record_type, values
     if data.ttl is not None:
         record.ttl = data.ttl
+    change = record_change(db, zone)
     _commit(db)
-    return record
+    return record, change
 
 
 def delete_records(db: Session, zone: HostedZone, records: list[DnsRecord]) -> None:

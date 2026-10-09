@@ -130,11 +130,12 @@ backend/
   security.py        bcrypt password hashing, session token generation + hashing
   dependencies.py    get_current_user: the session check every protected endpoint uses
   services/          business rules (zones.py: zone IDs, name servers, default records, CRUD;
-                     records.py: Route 53's record rules, atomic batch create/delete)
+                     records.py: Route 53's record rules, atomic batch create/delete;
+                     changes.py: change IDs and the PENDING -> INSYNC status)
   record_values.py   per-type validation and normalization of record values
   dns_names.py       zone and record name validation and normalization
   mock_vpcs.py       mocked Regions and VPCs for private zones
-  routers/           one module per resource (health, auth, zones, records, vpcs)
+  routers/           one module per resource (health, auth, zones, records, changes, vpcs)
   alembic/           migration environment + versions/
   tests/             pytest suite (isolated temp DB per test)
 frontend/
@@ -152,7 +153,7 @@ docs/                plan, architecture, schema, API, decisions
 
 ## Database schema
 
-SQLite, managed by Alembic (`backend/alembic/versions/`). Current revision: **0004**.
+SQLite, managed by Alembic (`backend/alembic/versions/`). Current revision: **0005**.
 
 | Table | Purpose | Key columns |
 |---|---|---|
@@ -161,6 +162,7 @@ SQLite, managed by Alembic (`backend/alembic/versions/`). Current revision: **00
 | `hosted_zones` | Hosted zones | `id` PK (Route 53-style, e.g. `Z02020872110QTE2FC2NK`), `user_id` FK `ON DELETE CASCADE`, `name` (`example.com.`), `type` (`public`/`private`), `description`, timestamps. `UNIQUE(user_id, name)` |
 | `hosted_zone_vpcs` | VPCs of a private zone | `id` PK, `zone_id` FK `ON DELETE CASCADE`, `region`, `vpc_id`. `UNIQUE(zone_id, vpc_id)` |
 | `records` | DNS records | `id` PK, `zone_id` FK `ON DELETE CASCADE`, `name`, `type`, `ttl`, `rdata` (JSON list of values), timestamps; `UNIQUE(zone_id, name, type)` |
+| `changes` | Record change batches ("View status") | `id` PK (`C0…`), `zone_id` FK `ON DELETE CASCADE`, `submitted_at`, `comment`; status PENDING → INSYNC computed from the time |
 
 A zone's record count isn't stored; it's counted in the same query that lists the zones. Full design and reasoning: [docs/DB_SCHEMA.md](docs/DB_SCHEMA.md).
 
@@ -183,9 +185,10 @@ All endpoints live under `/api`. Errors use the shape `{"detail": "..."}`. Valid
 | DELETE | `/api/zones/{id}` | ✅ | `204`; `409` while the zone has records other than NS and SOA |
 | GET | `/api/vpcs` | ✅ | The mocked Regions and VPCs offered for private zones |
 | GET | `/api/zones/{id}/records` | ✅ | The zone's records |
-| POST | `/api/zones/{id}/records` | ✅ | Create one or more records, all or none → `201`; `400` invalid value/name; `409` duplicate name + type or CNAME conflict |
+| POST | `/api/zones/{id}/records` | ✅ | Create one or more records, all or none → `201` with the records and their change; `400` invalid value/name; `409` duplicate name + type or CNAME conflict |
 | PATCH | `/api/zones/{id}/records/{rid}` | ✅ | Edit a record: name, type, TTL, values (SOA and apex NS keep their name and type) |
 | DELETE | `/api/zones/{id}/records/{rid}` | ✅ | `204`; `400` for the SOA record and the apex NS record |
 | POST | `/api/zones/{id}/records/batch-delete` | ✅ | Delete several records, all or none → `204` |
+| GET | `/api/changes/{id}` | ✅ | A record change's status: PENDING for 30 s, then INSYNC ("View status") |
 
 Full reference: [docs/API.md](docs/API.md) · live OpenAPI docs at `/docs` on the backend.

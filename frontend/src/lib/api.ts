@@ -186,14 +186,31 @@ export type CreateRecordInput = {
 /** PATCH body: any of the edit panel's fields; omitted ones stay as they are. */
 export type UpdateRecordInput = Partial<CreateRecordInput>;
 
+/** Route 53's ChangeInfo: every create or edit is a change, PENDING until "propagated", then INSYNC. */
+export type ChangeInfo = {
+  id: string;
+  zone_id: string;
+  status: "PENDING" | "INSYNC";
+  /** UTC, without an offset. */
+  submitted_at: string;
+  comment: string | null;
+};
+
 const recordsPath = (zoneId: string) => `/zones/${encodeURIComponent(zoneId)}/records`;
 
-export function createRecords(zoneId: string, records: CreateRecordInput[]): Promise<DnsRecord[]> {
-  return apiFetch<DnsRecord[]>(recordsPath(zoneId), { method: "POST", body: JSON.stringify({ records }) });
+export function createRecords(
+  zoneId: string,
+  records: CreateRecordInput[],
+): Promise<{ records: DnsRecord[]; change_info: ChangeInfo }> {
+  return apiFetch(recordsPath(zoneId), { method: "POST", body: JSON.stringify({ records }) });
 }
 
-export function updateRecord(zoneId: string, recordId: number, input: UpdateRecordInput): Promise<DnsRecord> {
-  return apiFetch<DnsRecord>(`${recordsPath(zoneId)}/${recordId}`, {
+export function updateRecord(
+  zoneId: string,
+  recordId: number,
+  input: UpdateRecordInput,
+): Promise<{ record: DnsRecord; change_info: ChangeInfo }> {
+  return apiFetch(`${recordsPath(zoneId)}/${recordId}`, {
     method: "PATCH",
     body: JSON.stringify(input),
   });
@@ -205,4 +222,10 @@ export function deleteRecords(zoneId: string, recordIds: number[]): Promise<null
     method: "POST",
     body: JSON.stringify({ ids: recordIds }),
   });
+}
+
+// --- Changes (backend/routers/changes.py) ---
+
+export function getChange(id: string, signal?: AbortSignal): Promise<ChangeInfo> {
+  return apiFetch<ChangeInfo>(`/changes/${encodeURIComponent(id)}`, { signal });
 }

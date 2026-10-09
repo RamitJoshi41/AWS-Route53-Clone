@@ -6,8 +6,6 @@ stay thin.
 """
 
 import random
-import secrets
-import string
 
 from fastapi import HTTPException, status
 from sqlalchemy import and_, func, not_, select
@@ -17,16 +15,15 @@ from sqlalchemy.orm import Session, selectinload
 import mock_vpcs
 from dns_names import normalize_zone_name
 from models import DnsRecord, HostedZone, HostedZoneVpc, User
+from route53_ids import new_id
 from schemas import VpcIn, ZoneCreate, ZoneUpdate
 
 # --- Zone IDs -------------------------------------------------------------------
 
-_ID_ALPHABET = string.ascii_uppercase + string.digits
-
 
 def generate_zone_id() -> str:
     """A Route 53-style ID: "Z0" + 19 uppercase letters/digits, e.g. Z02020872110QTE2FC2NK."""
-    return "Z0" + "".join(secrets.choice(_ID_ALPHABET) for _ in range(19))
+    return new_id("Z0")
 
 
 # --- Default name servers and records -------------------------------------------

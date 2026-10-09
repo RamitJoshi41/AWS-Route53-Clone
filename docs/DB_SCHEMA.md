@@ -5,7 +5,7 @@ This document outlines the SQLite database schema for the AWS Route53 Clone.
 ## Migrations & connection settings
 
 *   The schema is managed with **Alembic** (`backend/alembic/versions/`). Create or upgrade the DB with `cd backend && uv run alembic upgrade head`.
-*   **Current revision: `0004`.**
+*   **Current revision: `0005`.**
 
     | Revision | Contents |
     |---|---|
@@ -13,6 +13,7 @@ This document outlines the SQLite database schema for the AWS Route53 Clone.
     | `0002` | `users` and `sessions` tables, plus the seeded demo user `admin` / `password123`. |
     | `0003` | `hosted_zones`, `hosted_zone_vpcs` and `records` tables. |
     | `0004` | `UNIQUE(zone_id, name, type)` on `records` (one record set per name and type); drops `ix_records_zone_id`, which the new index covers. |
+    | `0005` | `changes` table (the change batches behind "View status"). |
 
 *   `PRAGMA foreign_keys=ON` is set on every SQLite connection, so `FOREIGN KEY` constraints and `ON DELETE CASCADE` are actually enforced.
 *   Migrations run in batch mode (`render_as_batch=True`), which SQLite needs for column changes.
@@ -26,6 +27,7 @@ This document outlines the SQLite database schema for the AWS Route53 Clone.
 users 1 ──< sessions
 users 1 ──< hosted_zones 1 ──< hosted_zone_vpcs   (private zones only)
                          1 ──< records
+                         1 ──< changes
 ```
 
 Every arrow is a foreign key with `ON DELETE CASCADE`: deleting a user removes their sessions and zones, and deleting a zone removes its VPC associations and records. The ORM relationships mirror this with `cascade="all, delete-orphan", passive_deletes=True`, which lets the database do the deleting instead of SQLAlchemy loading every child row first.
@@ -113,3 +115,17 @@ DNS record sets: one row per name + type, holding one or more values. Every new 
 *   `UNIQUE(zone_id, name, type)` (`uq_records_zone_id_name_type`, revision `0004`): one record set per name and type in a zone, Route 53's rule with simple routing. The API checks first to return Route 53's message as a `409`; the constraint still stops a duplicate when two requests race. Its index also answers "records of zone X" (`zone_id` is the leftmost column), so the separate `ix_records_zone_id` from `0003` was dropped.
 *   Not expressible as a constraint, so enforced by the API (`services/records.py`): a `CNAME` can't share its name with any other record or sit at the zone apex, and the `SOA` and apex `NS` records can't be deleted.
 *   If weighted or latency routing were added later, several record sets could share a name and type (told apart by a set identifier), and this constraint would gain a `set_identifier` column.
+
+### `changes` ✅ (revision 0005)
+One row per submitted change batch: every record create request (however many records it holds) and every record edit. It backs the console's "View status" / "Change Info" page.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | VARCHAR(32) | PK | Route 53-style ID, e.g. `C00322633S8ZY8DUPZBX0` (`C0` + 19 uppercase letters/digits), generated server-side |
+| `zone_id` | VARCHAR(32) | NOT NULL, FK → `hosted_zones.id` `ON DELETE CASCADE`, indexed (`ix_changes_zone_id`) | Ownership goes through the zone: a change is visible only to the zone's owner |
+| `submitted_at` | DATETIME | NOT NULL | UTC |
+| `comment` | VARCHAR(256) | nullable | Route 53 API callers may attach one; the console sends none |
+
+**Why the status isn't a column.** Route 53 reports a change `PENDING` until it has reached all of its DNS servers, then `INSYNC`. The clone mimics a 30-second propagation, so the status is a pure function of `submitted_at` and the current time (`services/changes.change_status`). A stored status would need a background job to flip it from `PENDING` to `INSYNC`; a computed one is always right and needs nothing.
+
+**Written in the same transaction as the records.** The change row is added before the commit that saves the records, so a change exists exactly when its records were saved: a rejected batch leaves neither.

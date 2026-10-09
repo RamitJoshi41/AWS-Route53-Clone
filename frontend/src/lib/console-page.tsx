@@ -23,6 +23,8 @@ export type ConsolePageConfig = {
   contentType?: AppLayoutProps.ContentType;
   /** The right-hand split panel, if the page has one. */
   splitPanel?: ConsoleSplitPanel;
+  /** Caps the content's width (centred), for pages the console shows as a narrower column. */
+  maxContentWidth?: number;
 };
 
 export type ConsoleSplitPanel = {
@@ -55,13 +57,13 @@ export function useConsolePage(config: ConsolePageConfig): void {
   const setPage = useContext(SetPageContext);
   if (!setPage) throw new Error("useConsolePage must be used inside <ConsolePageProvider>");
 
-  const { breadcrumbs, contentType, splitPanel } = config;
+  const { breadcrumbs, contentType, splitPanel, maxContentWidth } = config;
   // Breadcrumbs arrive as a new array on every render; compare them by content.
   const breadcrumbsKey = JSON.stringify(breadcrumbs);
 
   useEffect(() => {
-    setPage({ breadcrumbs: JSON.parse(breadcrumbsKey), contentType, splitPanel });
-  }, [setPage, breadcrumbsKey, contentType, splitPanel]);
+    setPage({ breadcrumbs: JSON.parse(breadcrumbsKey), contentType, splitPanel, maxContentWidth });
+  }, [setPage, breadcrumbsKey, contentType, splitPanel, maxContentWidth]);
 
   // Leaving the page clears its settings, so nothing leaks into the next page.
   useEffect(() => () => setPage(EMPTY_PAGE), [setPage]);

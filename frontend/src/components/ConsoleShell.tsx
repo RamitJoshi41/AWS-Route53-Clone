@@ -113,6 +113,7 @@ export default function ConsoleShell({ children }: { children: ReactNode }) {
           notifications: "Notifications",
         }}
         contentType={page.contentType ?? "default"}
+        maxContentWidth={page.maxContentWidth}
         navigation={
           <SideNavigation
             header={{ text: "Route 53", href: "/" }}

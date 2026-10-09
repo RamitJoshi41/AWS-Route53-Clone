@@ -38,6 +38,7 @@ This document breaks down the implementation of the Route53 clone into phased, t
     *   ~~Create backend `records` table linked to `hosted_zones`.~~ *(Done in Phase 3.)*
     *   Implement API endpoints for list, create, update, and delete Records. ✅ *(Task 4.1: list-taking create and `batch-delete`, both all-or-nothing; per-type value validation in Route 53's error style; CNAME/apex rules; migration `0004` adds `UNIQUE(zone_id, name, type)`.)*
     *   Build frontend "Records" table inside the Hosted Zone Details view. *(Read-only table and filters built in Phase 3.)* ✅ *(Task 4.2: record details in the split panel with copy buttons, Preferences dialog, "Delete record" disabled for the SOA and apex NS records; API corrections from the console references: error wording, `code` for duplicates, editable name/type, DNS order.)*
+    *   "View status" for record changes. ✅ *(Task 4.3b: `changes` table (migration `0005`), `GET /api/changes/{id}` with PENDING for 30 s then INSYNC, Change Info page, the blue "submitted" banner with its View status button.)*
     *   Build frontend "Create/Edit Record" form supporting different types (A, CNAME, TXT, etc.).
 *   **Definition of Done:** A user can navigate to a Hosted Zone, see its records, add a new A record (or other types), edit an existing record, and delete a record.
 

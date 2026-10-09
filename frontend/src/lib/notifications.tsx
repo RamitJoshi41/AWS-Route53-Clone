@@ -16,6 +16,8 @@ export type Notification = {
   content?: ReactNode;
   /** Shows a spinner instead of the icon: for "in progress" messages. */
   loading?: boolean;
+  /** A button at the message's right, e.g. "View status". */
+  action?: ReactNode;
 };
 
 type NotificationsApi = {

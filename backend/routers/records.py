@@ -11,7 +11,15 @@ from sqlalchemy.orm import Session
 from database import get_db
 from dependencies import get_current_user
 from models import User
-from schemas import RecordBatchCreate, RecordIds, RecordOut, RecordUpdate
+from schemas import (
+    RecordBatchCreate,
+    RecordIds,
+    RecordOut,
+    RecordsCreatedOut,
+    RecordUpdate,
+    RecordUpdatedOut,
+)
+from services import changes as change_service
 from services import records as record_service
 from services import zones as zone_service
 
@@ -26,31 +34,38 @@ def list_records(
     return RecordOut.in_console_order(zone.records)
 
 
-@router.post("", response_model=list[RecordOut], status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=RecordsCreatedOut, status_code=status.HTTP_201_CREATED)
 def create_records(
     zone_id: str,
     body: RecordBatchCreate,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> list[RecordOut]:
+) -> RecordsCreatedOut:
     # A list, because the console's "Create records" submits every record on the
-    # form together; either all are created or none.
+    # form together; either all are created or none. The change is what the
+    # success banner's "View status" opens.
     zone = zone_service.get_zone_or_404(db, user, zone_id)
-    created = record_service.create_records(db, zone, body.records)
-    return [RecordOut.model_validate(record) for record in created]
+    created, change = record_service.create_records(db, zone, body.records)
+    return RecordsCreatedOut(
+        records=[RecordOut.model_validate(record) for record in created],
+        change_info=change_service.change_info(change),
+    )
 
 
-@router.patch("/{record_id}", response_model=RecordOut)
+@router.patch("/{record_id}", response_model=RecordUpdatedOut)
 def update_record(
     zone_id: str,
     record_id: int,
     body: RecordUpdate,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> RecordOut:
+) -> RecordUpdatedOut:
     zone = zone_service.get_zone_or_404(db, user, zone_id)
     record = record_service.get_record_or_404(zone, record_id)
-    return RecordOut.model_validate(record_service.update_record(db, zone, record, body))
+    record, change = record_service.update_record(db, zone, record, body)
+    return RecordUpdatedOut(
+        record=RecordOut.model_validate(record), change_info=change_service.change_info(change)
+    )
 
 
 @router.delete("/{record_id}", status_code=status.HTTP_204_NO_CONTENT)

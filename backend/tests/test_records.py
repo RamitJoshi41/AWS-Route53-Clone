@@ -66,7 +66,7 @@ def test_records_are_listed_in_dns_order(logged_in_client: TestClient, zone: dic
 def test_create_a_record(logged_in_client: TestClient, zone: dict) -> None:
     response = post_records(logged_in_client, zone["id"], rec(name="Test.Example.com"))
     assert response.status_code == 201
-    [created] = response.json()
+    [created] = response.json()["records"]
     assert created == {
         "id": created["id"], "name": "test.example.com.", "type": "A", "ttl": 300, "values": ["192.0.2.235"],
     }
@@ -79,7 +79,7 @@ def test_create_a_record(logged_in_client: TestClient, zone: dict) -> None:
 def test_create_at_the_apex(logged_in_client: TestClient, zone: dict) -> None:
     response = post_records(logged_in_client, zone["id"], rec(name="example.com.", type="MX", values=["10 mail.example.com"]))
     assert response.status_code == 201
-    assert response.json()[0]["name"] == "example.com."
+    assert response.json()["records"][0]["name"] == "example.com."
 
 
 @pytest.mark.parametrize(
@@ -99,12 +99,12 @@ def test_create_at_the_apex(logged_in_client: TestClient, zone: dict) -> None:
 def test_every_supported_type_can_be_created(logged_in_client: TestClient, zone: dict, type: str, values: list[str]) -> None:
     response = post_records(logged_in_client, zone["id"], rec(name="sub.example.com", type=type, values=values))
     assert response.status_code == 201, response.text
-    assert response.json()[0]["values"] == values
+    assert response.json()["records"][0]["values"] == values
 
 
 def test_values_are_normalized(logged_in_client: TestClient, zone: dict) -> None:
     response = post_records(logged_in_client, zone["id"], rec(type="TXT", values=["hello"]))
-    assert response.json()[0]["values"] == ['"hello"']
+    assert response.json()["records"][0]["values"] == ['"hello"']
 
 
 def test_create_several_records_at_once(logged_in_client: TestClient, zone: dict, db_session_factory) -> None:
@@ -113,7 +113,7 @@ def test_create_several_records_at_once(logged_in_client: TestClient, zone: dict
         rec(name="a.example.com"), rec(name="b.example.com"), rec(name="a.example.com", type="TXT", values=['"x"']),
     )
     assert response.status_code == 201
-    assert [(r["name"], r["type"]) for r in response.json()] == [
+    assert [(r["name"], r["type"]) for r in response.json()["records"]] == [
         ("a.example.com.", "A"), ("b.example.com.", "A"), ("a.example.com.", "TXT"),
     ]
     assert count_rows(db_session_factory, DnsRecord, zone_id=zone["id"]) == 5
@@ -226,16 +226,16 @@ def test_unique_constraint_backs_up_the_service(zone: dict, db_session_factory: 
 
 
 def test_update_ttl_and_values(logged_in_client: TestClient, zone: dict) -> None:
-    [created] = post_records(logged_in_client, zone["id"], rec()).json()
+    [created] = post_records(logged_in_client, zone["id"], rec()).json()["records"]
     url = f"{records_url(zone['id'])}/{created['id']}"
 
     response = logged_in_client.patch(url, json={"ttl": 60, "values": ["192.0.2.1", "192.0.2.2"]})
     assert response.status_code == 200
-    assert response.json() == {**created, "ttl": 60, "values": ["192.0.2.1", "192.0.2.2"]}
+    assert response.json()["record"] == {**created, "ttl": 60, "values": ["192.0.2.1", "192.0.2.2"]}
 
     # Only what's sent changes.
-    assert logged_in_client.patch(url, json={"ttl": 3600}).json()["values"] == ["192.0.2.1", "192.0.2.2"]
-    assert logged_in_client.patch(url, json={}).json()["ttl"] == 3600
+    assert logged_in_client.patch(url, json={"ttl": 3600}).json()["record"]["values"] == ["192.0.2.1", "192.0.2.2"]
+    assert logged_in_client.patch(url, json={}).json()["record"]["ttl"] == 3600
 
 
 def test_apex_ns_and_soa_can_be_edited(logged_in_client: TestClient, zone: dict) -> None:
@@ -245,37 +245,37 @@ def test_apex_ns_and_soa_can_be_edited(logged_in_client: TestClient, zone: dict)
     assert logged_in_client.patch(f"{url}/{ns['id']}", json={"values": ["ns1.mine.com."]}).status_code == 200
     soa_value = "ns1.mine.com. hostmaster.mine.com. 2 7200 900 1209600 86400"
     response = logged_in_client.patch(f"{url}/{soa['id']}", json={"values": [soa_value]})
-    assert response.json()["values"] == [soa_value]
+    assert response.json()["record"]["values"] == [soa_value]
 
 
 def test_update_validates_values_by_the_records_type(logged_in_client: TestClient, zone: dict) -> None:
-    [created] = post_records(logged_in_client, zone["id"], rec(type="CNAME", values=["x.example.net"])).json()
+    [created] = post_records(logged_in_client, zone["id"], rec(type="CNAME", values=["x.example.net"])).json()["records"]
     url = f"{records_url(zone['id'])}/{created['id']}"
     assert "can have only one value" in logged_in_client.patch(url, json={"values": ["a.net", "b.net"]}).json()["detail"]
     assert logged_in_client.patch(url, json={"values": ["a..b"]}).status_code == 400
 
 
 def test_rename_and_retype_a_record(logged_in_client: TestClient, zone: dict) -> None:
-    [created] = post_records(logged_in_client, zone["id"], rec()).json()
+    [created] = post_records(logged_in_client, zone["id"], rec()).json()["records"]
     url = f"{records_url(zone['id'])}/{created['id']}"
 
     renamed = logged_in_client.patch(url, json={"name": "web.example.com"})
     assert renamed.status_code == 200
-    assert renamed.json() == {**created, "name": "web.example.com."}
+    assert renamed.json()["record"] == {**created, "name": "web.example.com."}
 
     retyped = logged_in_client.patch(url, json={"type": "TXT", "values": ['"now text"']})
-    assert retyped.json() == {**created, "name": "web.example.com.", "type": "TXT", "values": ['"now text"']}
+    assert retyped.json()["record"] == {**created, "name": "web.example.com.", "type": "TXT", "values": ['"now text"']}
 
 
 def test_retype_checks_the_current_values_against_the_new_type(logged_in_client: TestClient, zone: dict) -> None:
-    [created] = post_records(logged_in_client, zone["id"], rec()).json()
+    [created] = post_records(logged_in_client, zone["id"], rec()).json()["records"]
     response = logged_in_client.patch(f"{records_url(zone['id'])}/{created['id']}", json={"type": "AAAA"})
     assert response.status_code == 400
     assert "AAAARRDATAIllegalIPv6Address" in response.json()["detail"]
 
 
 def test_rename_onto_an_existing_record_set_is_409(logged_in_client: TestClient, zone: dict) -> None:
-    first, second = post_records(logged_in_client, zone["id"], rec(name="a.example.com"), rec(name="b.example.com")).json()
+    first, second = post_records(logged_in_client, zone["id"], rec(name="a.example.com"), rec(name="b.example.com")).json()["records"]
     response = logged_in_client.patch(f"{records_url(zone['id'])}/{second['id']}", json={"name": "a.example.com"})
     assert response.status_code == 409
     assert response.json() == {
@@ -286,7 +286,7 @@ def test_rename_onto_an_existing_record_set_is_409(logged_in_client: TestClient,
 
 def test_rename_into_a_cname_name_is_409(logged_in_client: TestClient, zone: dict) -> None:
     post_records(logged_in_client, zone["id"], rec(name="alias.example.com", type="CNAME", values=["x.example.net"]))
-    [record] = post_records(logged_in_client, zone["id"], rec(name="b.example.com")).json()
+    [record] = post_records(logged_in_client, zone["id"], rec(name="b.example.com")).json()["records"]
     response = logged_in_client.patch(f"{records_url(zone['id'])}/{record['id']}", json={"name": "alias.example.com"})
     assert response.status_code == 409
     assert "conflicting RRSet of type CNAME" in response.json()["detail"]
@@ -294,13 +294,13 @@ def test_rename_into_a_cname_name_is_409(logged_in_client: TestClient, zone: dic
 
 def test_a_cname_may_keep_its_own_name(logged_in_client: TestClient, zone: dict) -> None:
     """Saving a CNAME unchanged doesn't count as conflicting with itself."""
-    [cname] = post_records(logged_in_client, zone["id"], rec(type="CNAME", values=["x.example.net"])).json()
+    [cname] = post_records(logged_in_client, zone["id"], rec(type="CNAME", values=["x.example.net"])).json()["records"]
     response = logged_in_client.patch(
         f"{records_url(zone['id'])}/{cname['id']}",
         json={"name": "www.example.com", "type": "CNAME", "ttl": 300, "values": ["y.example.net"]},
     )
     assert response.status_code == 200
-    assert response.json()["values"] == ["y.example.net"]
+    assert response.json()["record"]["values"] == ["y.example.net"]
 
 
 @pytest.mark.parametrize(
@@ -326,7 +326,7 @@ def test_apex_ns_can_be_saved_with_its_own_name_and_type(logged_in_client: TestC
         f"{records_url(zone['id'])}/{ns['id']}", json={"name": "example.com", "type": "NS", "ttl": 3600}
     )
     assert response.status_code == 200
-    assert response.json() == {**ns, "ttl": 3600}
+    assert response.json()["record"] == {**ns, "ttl": 3600}
 
 
 def test_update_unknown_record_is_404(logged_in_client: TestClient, zone: dict) -> None:
@@ -339,7 +339,7 @@ def test_update_unknown_record_is_404(logged_in_client: TestClient, zone: dict) 
 
 
 def test_delete_a_record(logged_in_client: TestClient, zone: dict, db_session_factory) -> None:
-    [created] = post_records(logged_in_client, zone["id"], rec()).json()
+    [created] = post_records(logged_in_client, zone["id"], rec()).json()["records"]
     response = logged_in_client.delete(f"{records_url(zone['id'])}/{created['id']}")
     assert response.status_code == 204
     assert count_rows(db_session_factory, DnsRecord, id=created["id"]) == 0
@@ -356,12 +356,12 @@ def test_soa_and_apex_ns_cannot_be_deleted(logged_in_client: TestClient, zone: d
 
 
 def test_subdomain_ns_can_be_deleted(logged_in_client: TestClient, zone: dict) -> None:
-    [created] = post_records(logged_in_client, zone["id"], rec(name="dev.example.com", type="NS", values=["ns1.x.com"])).json()
+    [created] = post_records(logged_in_client, zone["id"], rec(name="dev.example.com", type="NS", values=["ns1.x.com"])).json()["records"]
     assert logged_in_client.delete(f"{records_url(zone['id'])}/{created['id']}").status_code == 204
 
 
 def test_batch_delete(logged_in_client: TestClient, zone: dict, db_session_factory) -> None:
-    created = post_records(logged_in_client, zone["id"], rec(name="a.example.com"), rec(name="b.example.com")).json()
+    created = post_records(logged_in_client, zone["id"], rec(name="a.example.com"), rec(name="b.example.com")).json()["records"]
     response = logged_in_client.post(
         f"{records_url(zone['id'])}/batch-delete", json={"ids": [r["id"] for r in created]}
     )
@@ -373,7 +373,7 @@ def test_batch_delete(logged_in_client: TestClient, zone: dict, db_session_facto
 def test_batch_delete_is_all_or_nothing(
     logged_in_client: TestClient, zone: dict, db_session_factory, extra: str
 ) -> None:
-    [created] = post_records(logged_in_client, zone["id"], rec()).json()
+    [created] = post_records(logged_in_client, zone["id"], rec()).json()["records"]
     extra_id = find(zone["records"], "example.com.", "SOA")["id"] if extra == "soa" else 99999
     response = logged_in_client.post(f"{records_url(zone['id'])}/batch-delete", json={"ids": [created["id"], extra_id]})
     assert response.status_code == (400 if extra == "soa" else 404)

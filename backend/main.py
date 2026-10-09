@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from config import get_settings
 from errors import CodedHTTPException, coded_http_exception_handler
-from routers import auth, health, records, vpcs, zones
+from routers import auth, changes, health, records, vpcs, zones
 
 settings = get_settings()
 
@@ -43,4 +43,5 @@ app.include_router(health.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(zones.router, prefix="/api")
 app.include_router(records.router, prefix="/api")
+app.include_router(changes.router, prefix="/api")
 app.include_router(vpcs.router, prefix="/api")

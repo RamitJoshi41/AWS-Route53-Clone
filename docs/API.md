@@ -193,6 +193,28 @@ Deletes a zone. As in Route 53, this only works while the zone contains nothing 
 
 ---
 
+## Changes
+
+Every record create (`POST /records`, one change for the whole batch) and edit (`PATCH`) is a **change**, Route 53's `ChangeInfo`: the console's success banner has a "View status" button that opens it. Real Route 53 reports a change `PENDING` until it has reached all of its DNS servers ("within 60 seconds"), then `INSYNC`. The clone mimics that: a change is `PENDING` for **30 seconds** after it was submitted, then `INSYNC`. The status is worked out when the change is read, not stored. Deleting records records no change (the console's delete banner has no "View status").
+
+### The change object
+| Field | Notes |
+|---|---|
+| `id` | Route 53-style: `C0` + 19 uppercase letters/digits |
+| `zone_id` | The hosted zone the change belongs to |
+| `status` | `"PENDING"` or `"INSYNC"` |
+| `submitted_at` | UTC, without an offset |
+| `comment` | Always `null`: Route 53 API callers can attach one; the console sends none |
+
+### `GET /changes/{id}` ✅ implemented
+One change, with its status as of now (the console's "Change Info" page).
+*   **Auth:** required. Only changes of the user's own zones are visible.
+*   **Response (200):** the change object.
+*   **Response (404):** `{"detail": "A change with the specified change ID does not exist: C0…"}` (Route 53's wording; also for another user's change)
+*   **Curl:** `curl -b jar.txt http://localhost:8000/api/changes/C0VKOP9N59GV0WZPRP829`
+
+---
+
 ## VPCs
 
 ### `GET /vpcs` ✅ implemented
@@ -263,7 +285,12 @@ Creates one or more records, **all or none**: the console's "Create records" but
     ]}
     ```
     `name` is fully qualified, as in the Route 53 API (the trailing dot is optional). The console's form adds the zone name to what you type in its "subdomain" box.
-*   **Response (201):** the created records, in request order: `[<record>, ...]`
+*   **Response (201):** the created records, in request order, and the change that created them (see **Changes**):
+    ```json
+    {"records": [<record>, ...],
+     "change_info": {"id": "C0VKOP9N59GV0WZPRP829", "zone_id": "Z0…", "status": "PENDING",
+                     "submitted_at": "2026-10-09T10:46:45.584748", "comment": null}}
+    ```
 *   **Response (400):** a broken rule or value (see above), the same name and type twice in one request (`The request contains an invalid set of changes for a resource record set 'A www.example.com.'`), `type: SOA`, or request validation such as `records.0.ttl: Input should be greater than or equal to 0`.
 *   **Response (409):** the record set already exists, or a CNAME conflict.
 *   **Curl:** `curl -b jar.txt -X POST http://localhost:8000/api/zones/Z0GLN2OXWU6NXVLK4MRVZ/records -H "Content-Type: application/json" -d '{"records": [{"name": "www.example.com", "type": "A", "ttl": 300, "values": ["192.0.2.1"]}]}'`
@@ -272,7 +299,7 @@ Creates one or more records, **all or none**: the console's "Create records" but
 Edits a record: any of the fields of the console's edit panel. Only the fields sent are changed.
 *   **Request body:** `{"name": "web.example.com", "type": "A", "ttl": 60, "values": ["192.0.2.1"]}`, every field optional. `values` replaces the whole list.
 *   **Renaming or retyping** works like Route 53's delete + create in one change: the new name + type is checked like a new record set against every *other* record (`409` if it exists, CNAME rules), and the values, sent or current, must suit the new type. The SOA and apex NS records keep their name and type (`400`, as for deleting them).
-*   **Response (200):** the updated record. Saving without changes also succeeds (the console shows its normal success banner).
+*   **Response (200):** `{"record": <record>, "change_info": <change>}`: the record as saved and the change that saved it. Saving without changes also succeeds and is a change too (the console shows its normal success banner).
 *   **Response (400):** a broken value or rule; **(409)** name + type taken, or a CNAME conflict; **(404)** `No record found with ID: 42` (also for a record of another zone).
 *   **Curl:** `curl -b jar.txt -X PATCH http://localhost:8000/api/zones/Z0GLN2OXWU6NXVLK4MRVZ/records/5 -H "Content-Type: application/json" -d '{"ttl": 60}'`
 
