@@ -20,10 +20,12 @@ import {
 export const zonesQueryKey = ["zones"] as const;
 export const zoneQueryKey = (id: string) => ["zones", id] as const;
 
-export function useZones() {
+/** All hosted zones. `enabled: false` waits (the top-bar search only fetches once used). */
+export function useZones({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: zonesQueryKey,
     queryFn: ({ signal }) => listZones(signal),
+    enabled,
     // The list shows skeleton rows while fetching; the console doesn't reload it
     // just because the browser tab regained focus (refresh is the button).
     refetchOnWindowFocus: false,

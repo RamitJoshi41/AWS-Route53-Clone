@@ -1,0 +1,65 @@
+/* The console's bottom bar (screenshot 01_Hosted_Zones_List): 34px, #161d26, pinned to the window. */
+.footer {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1002;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-sizing: border-box;
+  height: 34px;
+  padding: 0 12px;
+  background: #161d26;
+  border-top: 1px solid #424650;
+  /* Outside any Cloudscape component, so the font is set here (Cloudscape's base stack). */
+  font-family: "Open Sans", "Helvetica Neue", Roboto, Arial, sans-serif;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  color: #ffffff;
+  font-family: inherit;
+  /* Set again here: the popover trigger around each item resets the size to 14px. */
+  font-size: 12px;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.item:hover {
+  color: #ff9900;
+}
+
+.item:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+.copyright {
+  margin-right: 12px;
+  color: #ffffff;
+}
+
+@media (max-width: 688px) {
+  .optional {
+    display: none;
+  }
+}

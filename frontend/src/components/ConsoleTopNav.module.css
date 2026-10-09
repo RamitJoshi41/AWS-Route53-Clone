@@ -1,0 +1,124 @@
+/*
+ * The console's top bar, measured from screenshot 01_Hosted_Zones_List: 52px tall,
+ * background #161d26, with the "account color" strip (#7d8998, unset colour) along
+ * the top. The account label hangs from that strip like a tab.
+ */
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-sizing: border-box;
+  height: 52px;
+  padding: 0 16px 0 20px;
+  background: #161d26;
+  border-top: 4px solid #7d8998;
+  box-shadow: inset 0 1px 0 #414d5c;
+}
+
+.start,
+.end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.start {
+  flex: 1 1 auto;
+}
+
+.end {
+  flex: 0 0 auto;
+  align-self: stretch;
+}
+
+.identity {
+  flex: 0 0 auto;
+  margin-right: 8px;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.identity:hover {
+  color: #ff9900;
+}
+
+.search {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: 8px;
+}
+
+.region {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  color: #ffffff;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.region:hover {
+  color: #ff9900;
+}
+
+/* Two lines: the account tab (name and ID) hanging from the strip, the user below. */
+.account {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0 0 4px;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.accountLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px 2px;
+  border-radius: 0 0 4px 4px;
+  background: #7d8998;
+  color: #16191f;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.accountUser {
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.account:hover .accountUser {
+  color: #ff9900;
+}
+
+.region:focus-visible,
+.account:focus-visible,
+.identity:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Phones: only the identity, Help, Settings and the account stay. */
+@media (max-width: 688px) {
+  .search,
+  .optional {
+    display: none;
+  }
+}

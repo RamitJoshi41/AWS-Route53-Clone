@@ -1,0 +1,16 @@
+.search {
+  position: relative;
+  flex: 0 1 540px;
+  min-width: 0;
+}
+
+/* The console's "[Alt+S]" hint, shown inside the empty box. */
+.hint {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 12px;
+  color: #b4b4bb;
+}

@@ -46,12 +46,13 @@ This document breaks down the implementation of the Route53 clone into phased, t
 ## Phase 5: Route53 UI/UX Polish
 **Goal:** Replicate the specific look and feel of the AWS console.
 *   **Tasks:**
-    *   Implement the global AWS-style top navigation bar.
+    *   Implement the global AWS-style top navigation bar. ✅ *(Task 5.1: the console's bar with search for pages and hosted zones (Alt+S), Help & support links, the "Global" Region note, a mocked account menu with Sign out; the console's bottom bar; unimplemented controls open a "not available" popover.)*
     *   ~~Implement the left sidebar navigation structure.~~ *(Done in Phase 3.)*
     *   Add pagination, search, and filtering to the Hosted Zones and Records tables. *(Done in Phase 3.)*
     *   Help panel behind the "Info" links.
     *   Polish forms, modals, buttons, and typography to match AWS.
     *   ~~Add success/error notifications (toast messages).~~ *(Done in Phase 3.)*
+    *   Dark mode (task 5.4): the console's Settings menu (gear in the top bar) with Visual mode Browser default / Light / Dark. Sized before it is planned.
 *   **Definition of Done:** The application visually resembles the AWS Route53 console closely, including navigation, table behaviors, and feedback mechanisms.
 
 ## Phase 6: Mocked Sections & Placeholders

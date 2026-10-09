@@ -43,7 +43,7 @@ Open http://localhost:3000. You are redirected to the sign-in page. Use the demo
 |---|---|
 | `admin` | `password123` |
 
-The account is created by database migration `0002`, so it exists as soon as `alembic upgrade head` has run. Sign out from the **admin ▾** menu in the top-right corner.
+The account is created by database migration `0002`, so it exists as soon as `alembic upgrade head` has run. Sign out from the account menu (**admin (…) ▾**) in the top-right corner.
 
 ### Running tests
 ```bash
@@ -68,7 +68,7 @@ See `backend/.env.example` and `frontend/.env.example`.
 
 ## What works today
 
-- **Console layout:** top navigation, Route 53's full side navigation (pages that aren't built yet show "Coming soon"), breadcrumbs, a resizable split panel, and stacked notifications. It also works at phone width.
+- **Console layout:** the console's dark top bar (search for pages and hosted zones with **Alt+S**, help links, a mocked account menu) and bottom bar, Route 53's full side navigation (pages that aren't built yet show "Coming soon"), breadcrumbs, a resizable split panel, and stacked notifications. It also works at phone width.
 - **Hosted zones list:**
   - Select a zone, then use View details / Edit / Delete.
   - Search with Route 53's property filter (e.g. `Type : Private`), sortable and resizable columns, pagination, and a Preferences dialog (page size, wrap lines, visible columns, search mode).

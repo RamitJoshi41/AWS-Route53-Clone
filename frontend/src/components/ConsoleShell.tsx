@@ -10,12 +10,14 @@ import SideNavigation, { type SideNavigationProps } from "@cloudscape-design/com
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
+import ConsoleFooter from "@/components/ConsoleFooter";
 import ConsoleTopNav from "@/components/ConsoleTopNav";
 import { useCurrentConsolePage } from "@/lib/console-page";
 import { NAVIGATION, type NavLink } from "@/lib/navigation";
 import { useNotificationMessages } from "@/lib/notifications";
 
 const HEADER_ID = "console-header";
+const FOOTER_ID = "console-footer";
 const DEFAULT_SPLIT_PANEL_SIZE = 412;
 // Cloudscape's mobile breakpoint: below it AppLayout switches to its mobile layout.
 const MOBILE_MAX_WIDTH = 688;
@@ -52,7 +54,9 @@ const NAV_ITEMS: SideNavigationProps.Item[] = NAVIGATION.map((entry): SideNaviga
 /**
  * The console frame around every signed-in page: the dark top bar, then
  * Cloudscape's AppLayoutToolbar with the Route 53 side navigation, the breadcrumb
- * bar, flash messages and (if the page has one) the split panel.
+ * bar, flash messages and (if the page has one) the split panel, then the dark
+ * bottom bar. The header and footer selectors tell AppLayout how much of the
+ * window those two bars take, so its sticky parts (navigation, panels) fit between.
  */
 export default function ConsoleShell({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -106,6 +110,7 @@ export default function ConsoleShell({ children }: { children: ReactNode }) {
       </div>
       <AppLayoutToolbar
         headerSelector={`#${HEADER_ID}`}
+        footerSelector={`#${FOOTER_ID}`}
         ariaLabels={{
           navigation: "Side navigation",
           navigationToggle: "Open side navigation",
@@ -163,6 +168,7 @@ export default function ConsoleShell({ children }: { children: ReactNode }) {
         toolsHide
         content={children}
       />
+      <ConsoleFooter id={FOOTER_ID} />
     </>
   );
 }
