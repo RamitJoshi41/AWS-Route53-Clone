@@ -2,6 +2,8 @@
 
 A functional clone of the AWS Route 53 web console: hosted zones and DNS records with full CRUD, mocked authentication, and SQLite persistence. It recreates the Route 53 user experience; it does **not** serve real DNS.
 
+**Live demo:** https://aws-route53-clone-delta-indol.vercel.app (sign in with `admin` / `password123`). The backend is on Render's free tier: the first load after a quiet period can take up to a minute, and data resets when the backend restarts (see [Deployment](#deployment)).
+
 | Layer | Tech |
 |---|---|
 | Frontend | Next.js 16 (App Router, TypeScript), AWS Cloudscape Design System, TanStack React Query |
@@ -68,7 +70,7 @@ See `backend/.env.example` and `frontend/.env.example`.
 
 ## Deployment
 
-The backend runs on **Render** (free web service), the frontend on **Vercel**. The browser only talks to Vercel: Next.js proxies `/api/*` to Render, so the session cookie is first-party on the Vercel domain and no cross-site cookie settings are needed.
+The backend runs on **Render** (free web service, https://route53-clone-api-qpe6.onrender.com, API docs at `/docs`), the frontend on **Vercel** (https://aws-route53-clone-delta-indol.vercel.app). The browser only talks to Vercel: Next.js proxies `/api/*` to Render, so the session cookie is first-party on the Vercel domain and no cross-site cookie settings are needed.
 
 ```
 Browser ──HTTPS──▶ Vercel (Next.js) ──/api/* rewrite──▶ Render (FastAPI + SQLite)
