@@ -1,9 +1,11 @@
 /*
  * The console's top bar, measured from screenshot 01_Hosted_Zones_List: 52px tall,
  * background #161d26, with the "account color" strip (#7d8998, unset colour) along
- * the top. The account label hangs from that strip like a tab.
+ * the top.
  */
 .bar {
+  /* The account menu's panel is positioned against the bar. */
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -71,44 +73,7 @@
   color: #ff9900;
 }
 
-/* Two lines: the account tab (name and ID) hanging from the strip, the user below. */
-.account {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: space-between;
-  height: 100%;
-  padding: 0 0 4px;
-  border: 0;
-  background: none;
-  font: inherit;
-  cursor: pointer;
-}
-
-.accountLabel {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 6px 2px;
-  border-radius: 0 0 4px 4px;
-  background: #7d8998;
-  color: #16191f;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 16px;
-}
-
-.accountUser {
-  color: #ffffff;
-  font-size: 12px;
-}
-
-.account:hover .accountUser {
-  color: #ff9900;
-}
-
 .region:focus-visible,
-.account:focus-visible,
 .identity:focus-visible {
   outline: 2px solid #ffffff;
   outline-offset: 2px;

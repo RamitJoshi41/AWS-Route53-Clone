@@ -1,0 +1,117 @@
+/*
+ * The account menu, measured from screenshot AccountDropdown. The panel is
+ * positioned against the top bar (which is position: relative), so it hangs flush
+ * under the bar at the window's right edge, as in the console.
+ */
+.root {
+  display: flex;
+  height: 100%;
+}
+
+/* Two lines: the account tab (name and ID) hanging from the strip, the user below. */
+.trigger {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0 0 4px;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px 2px;
+  border-radius: 0 0 4px 4px;
+  background: #7d8998;
+  color: #16191f;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.user {
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.trigger:hover .user,
+.trigger[aria-expanded="true"] .user {
+  color: #42b4ff;
+}
+
+.trigger:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  width: min(300px, 100vw);
+  padding: 20px;
+  background: #1b232d;
+  border: 1px solid #424650;
+  border-top: 0;
+}
+
+.color {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #7d8998;
+}
+
+.divider {
+  margin: 16px 0;
+  border: 0;
+  border-top: 1px solid #424650;
+}
+
+.links {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.link {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: #dedee3;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.link:hover {
+  color: #42b4ff;
+  text-decoration: underline;
+}
+
+.link:focus-visible {
+  outline: 2px solid #42b4ff;
+  border-radius: 2px;
+}
+
+@media (max-width: 688px) {
+  .optional {
+    display: none;
+  }
+}

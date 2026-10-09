@@ -1,21 +1,16 @@
 "use client";
 
-import Alert from "@cloudscape-design/components/alert";
-import Box from "@cloudscape-design/components/box";
 import Button from "@cloudscape-design/components/button";
 import ButtonDropdown from "@cloudscape-design/components/button-dropdown";
-import CopyToClipboard from "@cloudscape-design/components/copy-to-clipboard";
 import Icon from "@cloudscape-design/components/icon";
-import KeyValuePairs from "@cloudscape-design/components/key-value-pairs";
 import Popover from "@cloudscape-design/components/popover";
-import SpaceBetween from "@cloudscape-design/components/space-between";
 import TopNavigation from "@cloudscape-design/components/top-navigation";
 import Link from "next/link";
 
+import AccountMenu from "@/components/AccountMenu";
 import ComingSoonPopover from "@/components/ComingSoonPopover";
 import ConsoleSearch from "@/components/ConsoleSearch";
-import { formatAccountId, mockAccountId } from "@/lib/account";
-import { useCurrentUser, useLogout } from "@/lib/auth";
+import { useCurrentUser } from "@/lib/auth";
 
 import styles from "./ConsoleTopNav.module.css";
 
@@ -62,136 +57,66 @@ const HELP_ITEMS = [
  */
 export default function ConsoleTopNav() {
   const { data: user } = useCurrentUser();
-  const logoutMutation = useLogout();
-  const accountId = user ? mockAccountId(user.id) : "";
 
   return (
-    <>
-      <TopNavigation visualContext="top-navigation">
-        <div className={styles.bar}>
-          <div className={styles.start}>
-            <Link href="/" className={styles.identity}>
-              Route 53 Clone
-            </Link>
-            <span className={styles.optional}>
-              <ComingSoonPopover feature="Services">
-                <Button variant="icon" iconSvg={SERVICES_ICON} ariaLabel="Services" />
-              </ComingSoonPopover>
-            </span>
-            <div className={styles.search}>
-              <ConsoleSearch />
-            </div>
-          </div>
-
-          <div className={styles.end}>
-            <span className={styles.optional}>
-              <ComingSoonPopover feature="CloudShell">
-                <Button variant="icon" iconName="command-prompt" ariaLabel="CloudShell" />
-              </ComingSoonPopover>
-            </span>
-            <span className={styles.optional}>
-              <ComingSoonPopover feature="Notifications">
-                <Button variant="icon" iconName="notification" ariaLabel="Notifications" />
-              </ComingSoonPopover>
-            </span>
-            <ButtonDropdown
-              variant="icon"
-              iconName="support"
-              ariaLabel="Help & support"
-              items={HELP_ITEMS}
-              expandToViewport
-            />
-            {/* Task 5.4 turns this into the console's Settings menu (Visual mode). */}
-            <ComingSoonPopover feature="Settings">
-              <Button variant="icon" iconName="settings" ariaLabel="Settings" />
+    <TopNavigation visualContext="top-navigation">
+      <div className={styles.bar}>
+        <div className={styles.start}>
+          <Link href="/" className={styles.identity}>
+            Route 53 Clone
+          </Link>
+          <span className={styles.optional}>
+            <ComingSoonPopover feature="Services">
+              <Button variant="icon" iconSvg={SERVICES_ICON} ariaLabel="Services" />
             </ComingSoonPopover>
-
-            <span className={styles.optional}>
-              <Popover
-                triggerType="custom"
-                position="bottom"
-                size="small"
-                header="Regions"
-                content="Route 53 does not require region selection."
-                dismissAriaLabel="Close"
-                renderWithPortal
-              >
-                <button type="button" className={styles.region}>
-                  Global <Icon name="caret-down-filled" size="small" />
-                </button>
-              </Popover>
-            </span>
-
-            {user && (
-              <Popover
-                triggerType="custom"
-                position="bottom"
-                size="medium"
-                header="Account"
-                dismissAriaLabel="Close"
-                renderWithPortal
-                content={
-                  <SpaceBetween size="l">
-                    <KeyValuePairs
-                      columns={1}
-                      items={[
-                        {
-                          label: "Account ID",
-                          value: (
-                            <CopyToClipboard
-                              variant="inline"
-                              textToCopy={accountId}
-                              textToDisplay={formatAccountId(accountId)}
-                              copyButtonAriaLabel="Copy Account Id"
-                              copySuccessText="Account ID copied"
-                              copyErrorText="Account ID failed to copy"
-                            />
-                          ),
-                        },
-                        {
-                          label: "Account name",
-                          value: (
-                            <CopyToClipboard
-                              variant="inline"
-                              textToCopy={user.username}
-                              copyButtonAriaLabel="Copy account name"
-                              copySuccessText="Account name copied"
-                              copyErrorText="Account name failed to copy"
-                            />
-                          ),
-                        },
-                      ]}
-                    />
-                    <Box float="right">
-                      <Button
-                        loading={logoutMutation.isPending}
-                        // useLogout navigates to a plain /login itself once the backend confirms.
-                        onClick={() => logoutMutation.mutate()}
-                      >
-                        Sign out
-                      </Button>
-                    </Box>
-                  </SpaceBetween>
-                }
-              >
-                <button type="button" className={styles.account} aria-label={`Account ${user.username}`}>
-                  <span className={styles.accountLabel}>
-                    {user.username}
-                    <span className={styles.optional}> ({accountId})</span>
-                    <Icon name="caret-down-filled" size="small" />
-                  </span>
-                  <span className={styles.accountUser}>{user.username}</span>
-                </button>
-              </Popover>
-            )}
+          </span>
+          <div className={styles.search}>
+            <ConsoleSearch />
           </div>
         </div>
-      </TopNavigation>
-      {logoutMutation.isError && (
-        <Alert type="error" dismissible onDismiss={() => logoutMutation.reset()}>
-          Sign out failed: {logoutMutation.error.message}. You are still signed in.
-        </Alert>
-      )}
-    </>
+
+        <div className={styles.end}>
+          <span className={styles.optional}>
+            <ComingSoonPopover feature="CloudShell">
+              <Button variant="icon" iconName="command-prompt" ariaLabel="CloudShell" />
+            </ComingSoonPopover>
+          </span>
+          <span className={styles.optional}>
+            <ComingSoonPopover feature="Notifications">
+              <Button variant="icon" iconName="notification" ariaLabel="Notifications" />
+            </ComingSoonPopover>
+          </span>
+          <ButtonDropdown
+            variant="icon"
+            iconName="support"
+            ariaLabel="Help & support"
+            items={HELP_ITEMS}
+            expandToViewport
+          />
+          {/* Task 5.4 turns this into the console's Settings menu (Visual mode). */}
+          <ComingSoonPopover feature="Settings">
+            <Button variant="icon" iconName="settings" ariaLabel="Settings" />
+          </ComingSoonPopover>
+
+          <span className={styles.optional}>
+            <Popover
+              triggerType="custom"
+              position="bottom"
+              size="small"
+              header="Regions"
+              content="Route 53 does not require region selection."
+              dismissAriaLabel="Close"
+              renderWithPortal
+            >
+              <button type="button" className={styles.region}>
+                Global <Icon name="caret-down-filled" size="small" />
+              </button>
+            </Popover>
+          </span>
+
+          {user && <AccountMenu user={user} />}
+        </div>
+      </div>
+    </TopNavigation>
   );
 }
