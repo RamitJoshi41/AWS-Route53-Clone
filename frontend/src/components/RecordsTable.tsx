@@ -146,7 +146,13 @@ const COLUMNS: TableProps.ColumnDefinition<RecordRow>[] = [
     id: "value",
     header: "Value/Route traffic to",
     // One value per line, as in the console (an NS record lists its 4 name servers).
-    cell: (r) => r.values.map((value, i) => <div key={i}>{value}</div>),
+    // Each value cut off with "…" when the column is too narrow (the console's SOA cell).
+    cell: (r) =>
+      r.values.map((value, i) => (
+        <div key={i} className={styles.value}>
+          {value}
+        </div>
+      )),
     sortingField: "value",
     width: 240,
   },

@@ -5,6 +5,21 @@
   padding-top: 1.25rem;
 }
 
+/* "Record N": 14px bold in the console (screenshot 04), smaller than the inline
+   expandable section's default heading. */
+.recordHeader {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* The line under "View existing records" is small text (12px) in the console
+   (headerDescription only takes a string, so it's styled here). Only the section's
+   own description (its h3 variant), not the table header's inside it. */
+.existing :global([class*="awsui_description-variant-h3"]) {
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
 /* "View existing records" is a larger heading than an expandable section's default. */
 .existingHeader {
   font-size: 20px;

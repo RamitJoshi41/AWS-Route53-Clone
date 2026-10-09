@@ -63,3 +63,10 @@
     max-width: none;
   }
 }
+
+/* One record value per line, cut off with "…" like the console's table cells. */
+.value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

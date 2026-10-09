@@ -175,7 +175,8 @@ export default function RecordFields({
           value={draft.value}
           onChange={({ detail }) => set({ value: detail.value })}
           placeholder={info.placeholder}
-          rows={Math.min(Math.max(lines, 3), MAX_VALUE_ROWS)}
+          // At least 4 lines high, as in the console (screenshot 04: 91px).
+          rows={Math.min(Math.max(lines, 4), MAX_VALUE_ROWS)}
           ariaLabel="Value"
         />
       </FormField>

@@ -29,3 +29,9 @@
   flex: 1 1 10rem;
   min-width: 6rem;
 }
+
+/* The console's TTL box always shows its up/down arrows (screenshots 04, 07);
+   Chrome otherwise draws them only while the pointer is over the box. */
+.ttlInput input[type="number"]::-webkit-inner-spin-button {
+  opacity: 1;
+}

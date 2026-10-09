@@ -10,10 +10,19 @@ import type { HostedZone } from "@/lib/api";
 import { displayName, zoneTypeLong } from "@/lib/zones";
 
 /** One read-only "label over value" field, as in the console's details sections. */
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({
+  label,
+  children,
+  plainLabel = false,
+}: {
+  label: string;
+  children: ReactNode;
+  /** Regular-weight label, as in the console's Record details panel (screenshot 06). */
+  plainLabel?: boolean;
+}) {
   return (
     <div style={{ wordBreak: "break-all" }}>
-      <Box variant="awsui-key-label">{label}</Box>
+      {plainLabel ? <Box>{label}</Box> : <Box variant="awsui-key-label">{label}</Box>}
       <div>{children}</div>
     </div>
   );

@@ -50,9 +50,10 @@ This document breaks down the implementation of the Route53 clone into phased, t
     *   ~~Implement the left sidebar navigation structure.~~ *(Done in Phase 3.)*
     *   Add pagination, search, and filtering to the Hosted Zones and Records tables. *(Done in Phase 3.)*
     *   Help panel behind the "Info" links. ✅ *(Task 5.2: every Info link opens its topic in the console's help panel; the (i) button shows the page's default topic; 18 topics in `lib/helpTopics.tsx`, the ones with console screenshots worded as in the console.)*
-    *   Polish forms, modals, buttons, and typography to match AWS.
+    *   Polish forms, modals, buttons, and typography to match AWS. ✅ *(Task 5.3: screenshot audit of every page against references 01–17 at 1847×966; 10 differences fixed. 5.3a: popovers on the buttons of unbuilt features, split panel only on the Records tab, the console's filter breakpoints. 5.3b: value cells end in "…", regular-weight record detail labels, zone name without a leading dot, "Record N" heading and existing-records description sizes, 4-line Value box, TTL arrows.)*
     *   ~~Add success/error notifications (toast messages).~~ *(Done in Phase 3.)*
     *   Dark mode (task 5.4): the console's Settings menu (gear in the top bar) with Visual mode Browser default / Light / Dark. Sized before it is planned.
+    *   Import zone file (task 5.5, after 5.4): the Records tab's "Import zone file" button parses a BIND-format zone file into records (all or nothing, the same validation as Create record). Export (records to a BIND file) looks cheap and is included if it is. Planned separately when started.
 *   **Definition of Done:** The application visually resembles the AWS Route53 console closely, including navigation, table behaviors, and feedback mechanisms.
 
 ## Phase 6: Mocked Sections & Placeholders

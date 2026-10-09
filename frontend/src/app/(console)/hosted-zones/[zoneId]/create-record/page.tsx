@@ -152,7 +152,7 @@ export default function CreateRecordPage({ params }: PageProps<"/hosted-zones/[z
                 <ExpandableSection
                   variant="inline"
                   defaultExpanded
-                  headerText={`Record ${index + 1}`}
+                  headerText={<span className={styles.recordHeader}>Record {index + 1}</span>}
                   headerActions={
                     <Button
                       formAction="none"

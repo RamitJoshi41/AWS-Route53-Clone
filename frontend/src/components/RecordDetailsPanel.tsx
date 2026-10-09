@@ -67,20 +67,20 @@ export default function RecordDetailsPanel({ zone, selected, onSaved }: Props) {
     <SplitPanel header="Record details">
       <ColumnLayout columns={2} variant="text-grid">
         <Button onClick={() => setEditing(true)}>Edit record</Button>
-        <Field label="Record name">
+        <Field plainLabel label="Record name">
           <Copyable text={row.name} />
         </Field>
-        <Field label="Record type">{record.type}</Field>
-        <Field label="Value">
+        <Field plainLabel label="Record type">{record.type}</Field>
+        <Field plainLabel label="Value">
           {record.values.map((value, i) => (
             <div key={i}>
               <Copyable text={value} />
             </div>
           ))}
         </Field>
-        <Field label="Alias">{row.alias}</Field>
-        <Field label="TTL (seconds)">{record.ttl.toLocaleString()}</Field>
-        <Field label="Routing policy">{row.routingPolicy}</Field>
+        <Field plainLabel label="Alias">{row.alias}</Field>
+        <Field plainLabel label="TTL (seconds)">{record.ttl.toLocaleString()}</Field>
+        <Field plainLabel label="Routing policy">{row.routingPolicy}</Field>
       </ColumnLayout>
     </SplitPanel>
   );
