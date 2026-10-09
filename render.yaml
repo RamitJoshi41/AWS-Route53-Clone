@@ -1,0 +1,29 @@
+# Render Blueprint for the FastAPI backend (https://render.com/docs/blueprint-spec).
+# The Next.js frontend is deployed separately on Vercel; see README.md → Deployment.
+services:
+  - type: web
+    name: route53-clone-api
+    runtime: python
+    # Free tier: the filesystem is ephemeral, so backend/route53.db is recreated
+    # (empty, with the demo user) on every deploy, restart and idle spin-down.
+    plan: free
+    rootDir: backend
+    buildCommand: pip install uv && uv sync --frozen --no-dev
+    # Migrations run at start, not build: they must create the database file the
+    # running instance actually uses. --no-sync stops `uv run` from re-syncing the
+    # environment with the dev dependencies.
+    startCommand: >-
+      uv run --no-sync alembic upgrade head &&
+      uv run --no-sync uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      # The browser reaches the API through Vercel over HTTPS.
+      - key: COOKIE_SECURE
+        value: "true"
+      # The Vercel URL, e.g. https://route53-clone.vercel.app. Asked for when the
+      # Blueprint is created; only matters for direct browser calls (the app itself
+      # goes through the Vercel proxy).
+      - key: CORS_ORIGINS
+        sync: false

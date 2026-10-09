@@ -66,6 +66,35 @@ See `backend/.env.example` and `frontend/.env.example`.
 
 ---
 
+## Deployment
+
+The backend runs on **Render** (free web service), the frontend on **Vercel**. The browser only talks to Vercel: Next.js proxies `/api/*` to Render, so the session cookie is first-party on the Vercel domain and no cross-site cookie settings are needed.
+
+```
+Browser ──HTTPS──▶ Vercel (Next.js) ──/api/* rewrite──▶ Render (FastAPI + SQLite)
+```
+
+### 1. Backend on Render
+1. Push the repo to GitHub.
+2. In Render: **New → Blueprint**, pick the repo. Render reads [`render.yaml`](render.yaml):
+   - root directory `backend`, build `pip install uv && uv sync --frozen --no-dev`
+   - start `alembic upgrade head`, then `uvicorn main:app --host 0.0.0.0 --port $PORT`
+   - health check `/api/health`, `PYTHON_VERSION=3.12.13`, `COOKIE_SECURE=true`
+3. When asked for `CORS_ORIGINS`, enter the Vercel URL if you know it (e.g. `https://route53-clone.vercel.app`), or a placeholder you change after step 2 below.
+4. Check `https://<service>.onrender.com/api/health` returns `{"status":"ok",...}`.
+
+### 2. Frontend on Vercel
+1. In Vercel: **Add New → Project**, import the repo, set **Root Directory** to `frontend` (framework: Next.js, detected).
+2. Add the environment variable `BACKEND_URL=https://<service>.onrender.com` (no trailing slash).
+3. Deploy. `BACKEND_URL` is baked in at build time, so **redeploy** after changing it.
+4. Back in Render, set `CORS_ORIGINS` to the Vercel URL if you used a placeholder.
+
+### Free-tier limitations
+- **Data resets.** Render's free filesystem is ephemeral: `route53.db` is recreated on every deploy, restart and idle spin-down (after ~15 minutes without traffic). Migrations recreate the `admin` / `password123` account each time, so signing in always works, but hosted zones and records are lost. Persistent data would need a paid instance with a persistent disk (`DATABASE_URL=sqlite:////var/data/route53.db`).
+- **Cold start.** The first request after a spin-down can take up to a minute; if a page shows "Error occurred", refresh once the backend is awake.
+
+---
+
 ## What works today
 
 - **Console layout:** the console's dark top bar (search for pages and hosted zones with **Alt+S**, help links, a mocked account menu) and bottom bar, Route 53's full side navigation (pages that aren't built yet show "Coming soon"), breadcrumbs, a resizable split panel, and stacked notifications. It also works at phone width.
@@ -150,6 +179,7 @@ frontend/
   src/lib/           api.ts (typed fetch wrapper), auth.ts, zones.ts (data hooks), navigation.ts,
                      notifications.tsx, console-page.tsx
 docs/                plan, architecture, schema, API, decisions
+render.yaml          Render Blueprint for the backend (see Deployment)
 ```
 
 ---

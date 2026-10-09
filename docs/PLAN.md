@@ -69,4 +69,5 @@ This document breaks down the implementation of the Route53 clone into phased, t
     *   Update `README.md` with setup instructions.
     *   Finalize `ARCHITECTURE.md` and `DB_SCHEMA.md`.
     *   Code cleanup, linting, and basic manual QA testing.
+    *   Deployment config: backend on Render (`render.yaml` Blueprint, free tier), frontend on Vercel. ✅ *(Config and docs; the live deploy is done from the Render/Vercel dashboards.)*
 *   **Definition of Done:** The repository is ready to be zipped/cloned by the evaluator, with clear instructions on how to run it.

@@ -17,6 +17,9 @@ graph LR
 ### Why proxy instead of calling FastAPI directly?
 The session is an **httpOnly cookie**. If the browser called `:8000` directly, that would be a cross-origin request: it would need `credentials: "include"`, a non-wildcard CORS origin, and, once frontend and backend are deployed on different domains, `SameSite=None; Secure` third-party cookies, which browsers increasingly block. Proxying makes every API call same-origin, so the cookie "just works" and no CORS preflight is needed.
 
+### Deployed
+The same shape in production: Next.js on **Vercel**, FastAPI on **Render** (`render.yaml`). `BACKEND_URL` points the rewrite at the Render URL. The browser only sees the Vercel domain, so the cookie set by FastAPI (passed through the proxy) belongs to that domain, and `COOKIE_SECURE=true` works because the browser ↔ Vercel leg is HTTPS. The proxy matters even more here: `vercel.app` and `onrender.com` are both on the Public Suffix List, so a direct call would always be cross-site. Render's free filesystem is ephemeral, so the SQLite file is recreated (migrations + demo user) on each deploy, restart and spin-down; see README → Deployment.
+
 ## Request flow (example: health check)
 
 1. A client (a monitor, or `curl http://localhost:3000/api/health`) requests `/api/health` from the Next.js origin.
