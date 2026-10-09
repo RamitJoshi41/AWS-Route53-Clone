@@ -46,7 +46,9 @@ export function useDeleteRecords(zoneId: string) {
   const refreshZone = useRefreshZone(zoneId);
   return useMutation({
     mutationFn: (recordIds: number[]) => deleteRecords(zoneId, recordIds),
-    onSuccess: refreshZone,
+    // Also after a failure: a 404 means a record was already deleted elsewhere, and
+    // the table shouldn't keep showing it.
+    onSettled: refreshZone,
   });
 }
 

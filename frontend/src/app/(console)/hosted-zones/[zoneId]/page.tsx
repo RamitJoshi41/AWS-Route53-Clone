@@ -10,6 +10,7 @@ import Tabs, { type TabsProps } from "@cloudscape-design/components/tabs";
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 
+import DeleteRecordsModal from "@/components/DeleteRecordsModal";
 import DeleteZoneModal from "@/components/DeleteZoneModal";
 import RecordDetailsPanel from "@/components/RecordDetailsPanel";
 import RecordsTable from "@/components/RecordsTable";
@@ -29,6 +30,7 @@ export default function HostedZoneDetailsPage({ params }: PageProps<"/hosted-zon
   const loadedZone = zoneQuery.data;
   const [selectedRecordIds, setSelectedRecordIds] = useState<number[]>([]);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteRecordsOpen, setDeleteRecordsOpen] = useState(false);
 
   // Only records still in the zone count: a refresh may have dropped a deleted one.
   const selectedRecords = loadedZone?.records.filter((record) => selectedRecordIds.includes(record.id)) ?? [];
@@ -81,6 +83,7 @@ export default function HostedZoneDetailsPage({ params }: PageProps<"/hosted-zon
           onRefresh={() => zoneQuery.refetch()}
           selectedIds={selectedRecordIds}
           onSelectionChange={setSelectedRecordIds}
+          onDeleteSelected={() => setDeleteRecordsOpen(true)}
         />
       ),
     },
@@ -131,6 +134,14 @@ export default function HostedZoneDetailsPage({ params }: PageProps<"/hosted-zon
 
       <Tabs tabs={tabs} ariaLabel="Hosted zone sections" />
 
+      {deleteRecordsOpen && selectedRecords.length > 0 && (
+        <DeleteRecordsModal
+          zoneId={zone.id}
+          records={selectedRecords}
+          onClose={() => setDeleteRecordsOpen(false)}
+          onDeleted={() => setSelectedRecordIds([])}
+        />
+      )}
       {deleteOpen && (
         <DeleteZoneModal zone={zone} onClose={() => setDeleteOpen(false)} onDeleted={() => router.push(LIST_HREF)} />
       )}

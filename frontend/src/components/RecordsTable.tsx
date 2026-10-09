@@ -170,7 +170,7 @@ type Props = {
   onRefresh: () => void;
   selectedIds: number[];
   onSelectionChange: (ids: number[]) => void;
-  /** "Delete record" for the selection; the confirmation dialog arrives with record deletion. */
+  /** "Delete record": opens the confirmation dialog for the selection. */
   onDeleteSelected?: () => void;
   /** Where "Create record" leads. */
   createHref?: string;
