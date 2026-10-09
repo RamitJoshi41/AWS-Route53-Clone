@@ -19,11 +19,12 @@
 /* TTL: the input fills the row, the 1m / 1h / 1d buttons follow it. */
 .ttlRow {
   display: flex;
+  flex-wrap: wrap; /* in the narrow edit panel the buttons go under the box (screenshot 07) */
   align-items: center;
   gap: 0.75rem;
 }
 
 .ttlInput {
-  flex: 1 1 auto;
+  flex: 1 1 10rem;
   min-width: 6rem;
 }

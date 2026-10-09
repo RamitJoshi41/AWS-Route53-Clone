@@ -41,7 +41,15 @@ export default function HostedZoneDetailsPage({ params }: PageProps<"/hosted-zon
       ? {
           id: "hosted-zone-details",
           defaultSize: 643,
-          content: <RecordDetailsPanel selected={selectedRecords} />,
+          content: (
+            <RecordDetailsPanel
+              // A new selection starts on the details, never in the previous record's edit form.
+              key={selectedRecordIds.join(",")}
+              zone={loadedZone}
+              selected={selectedRecords}
+              onSaved={() => setSelectedRecordIds([])}
+            />
+          ),
         }
       : undefined,
   });

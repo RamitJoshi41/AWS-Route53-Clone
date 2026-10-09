@@ -4,10 +4,12 @@ import Button from "@cloudscape-design/components/button";
 import ColumnLayout from "@cloudscape-design/components/column-layout";
 import CopyToClipboard from "@cloudscape-design/components/copy-to-clipboard";
 import SplitPanel from "@cloudscape-design/components/split-panel";
+import { useState } from "react";
 
+import EditRecordForm from "@/components/EditRecordForm";
 import { toRecordRow } from "@/components/RecordsTable";
 import { Field } from "@/components/ZoneDetailsFields";
-import type { DnsRecord } from "@/lib/api";
+import type { DnsRecord, HostedZone } from "@/lib/api";
 
 function Copyable({ text }: { text: string }) {
   return (
@@ -22,17 +24,24 @@ function Copyable({ text }: { text: string }) {
 }
 
 type Props = {
+  zone: HostedZone;
   /** The selected records of the zone. */
   selected: DnsRecord[];
-  /** Opens the edit form for the record; arrives with editing (until then the button is disabled). */
-  onEdit?: (record: DnsRecord) => void;
+  /** After the edit form saved; the page clears the selection, as the console does. */
+  onSaved: () => void;
 };
 
 /**
  * The split panel of a hosted zone's page (screenshot 06). One selected record shows
- * its details; none or several show "N records selected", as in the console.
+ * its details, and "Edit record" turns the panel into its edit form (screenshot 07);
+ * none or several show "N records selected", as in the console.
+ *
+ * Give it a `key` that changes with the selection, so selecting another record leaves
+ * the edit form.
  */
-export default function RecordDetailsPanel({ selected, onEdit }: Props) {
+export default function RecordDetailsPanel({ zone, selected, onSaved }: Props) {
+  const [editing, setEditing] = useState(false);
+
   if (selected.length !== 1) {
     return (
       <SplitPanel header={`${selected.length} records selected`}>
@@ -42,6 +51,14 @@ export default function RecordDetailsPanel({ selected, onEdit }: Props) {
   }
 
   const record = selected[0];
+  if (editing) {
+    return (
+      <SplitPanel header="Edit record">
+        <EditRecordForm zone={zone} record={record} onCancel={() => setEditing(false)} onSaved={onSaved} />
+      </SplitPanel>
+    );
+  }
+
   const row = toRecordRow(record);
   // A two-column grid filled row by row, like the console: on the side it reads
   // [Edit | name] [type | value] [alias | TTL] [routing policy], and in a narrow
@@ -49,9 +66,7 @@ export default function RecordDetailsPanel({ selected, onEdit }: Props) {
   return (
     <SplitPanel header="Record details">
       <ColumnLayout columns={2} variant="text-grid">
-        <Button disabled={!onEdit} onClick={() => onEdit?.(record)}>
-          Edit record
-        </Button>
+        <Button onClick={() => setEditing(true)}>Edit record</Button>
         <Field label="Record name">
           <Copyable text={row.name} />
         </Field>

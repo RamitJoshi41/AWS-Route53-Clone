@@ -8,7 +8,7 @@ A functional clone of the AWS Route 53 web console: hosted zones and DNS records
 | Backend | FastAPI, SQLAlchemy 2, Alembic migrations, bcrypt |
 | Database | SQLite (`backend/route53.db`) |
 
-> **Status:** Phase 3 (hosted zones) complete: list, search, create (public and private), view, edit and delete hosted zones in a Route 53-style console. Phase 4 (DNS records) in progress: the records API, the record details panel, the Create record page (several records at once) and "View status" (PENDING → INSYNC) are done; editing and deleting records in the console come next. Feature progress is tracked in [docs/PLAN.md](docs/PLAN.md).
+> **Status:** Phase 3 (hosted zones) complete: list, search, create (public and private), view, edit and delete hosted zones in a Route 53-style console. Phase 4 (DNS records) in progress: the records API, the record details panel, the Create record page (several records at once) and "View status" (PENDING → INSYNC) are done; editing records in the split panel is done; deleting records in the console comes next. Feature progress is tracked in [docs/PLAN.md](docs/PLAN.md).
 
 ---
 
@@ -80,6 +80,7 @@ See `backend/.env.example` and `frontend/.env.example`.
 - **Zone details:**
   - Public and private variants.
   - Records table with its search box and Type / Routing policy / Alias filters, preferences (page size, wrap lines, visible columns), and the selected record's details in the split panel.
+  - **Edit record** in the split panel: name, type, TTL and values (the SOA and apex NS records keep their name and type; the apex NS shows the console's warning).
   - **Create record** (Quick create): one or more records per submit, all or none; Route 53's validation errors in the console's banner; a "View status" button showing the change going from PENDING to INSYNC.
   - The Accelerated recovery, DNSSEC signing and Tags tabs show their empty states.
 - **Edit:** the description, and for private zones the associated VPCs.

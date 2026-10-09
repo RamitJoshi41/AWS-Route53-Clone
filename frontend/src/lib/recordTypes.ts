@@ -10,6 +10,8 @@ type TypeInfo = {
   label: string;
   /** The Value box's placeholder for this type. */
   placeholder: string;
+  /** Added to the Value box's hint for types with several fields (screenshot Creating_MX_Record). */
+  format?: string;
 };
 
 export const RECORD_TYPES: Record<RecordType, TypeInfo> = {
@@ -22,7 +24,11 @@ export const RECORD_TYPES: Record<RecordType, TypeInfo> = {
     label: "CNAME – Routes traffic to another domain name and to some AWS resources",
     placeholder: "www.example.com",
   },
-  MX: { label: "MX – Specifies mail servers", placeholder: "10 mailserver.example.com" },
+  MX: {
+    label: "MX – Specifies mail servers",
+    placeholder: "10 mailserver.example.com",
+    format: "Format: [priority] [mail server host name]",
+  },
   TXT: {
     label: "TXT – Used to verify email senders and for application-specific values",
     placeholder: "Sample Text Entries",
@@ -31,10 +37,12 @@ export const RECORD_TYPES: Record<RecordType, TypeInfo> = {
   SRV: {
     label: "SRV – Application-specific values that identify servers",
     placeholder: "1 10 5269 xmpp-server.example.com",
+    format: "Format: [priority] [weight] [port] [server host name]",
   },
   CAA: {
     label: "CAA – Restricts CAs that can create SSL/TLS certificates for the domain",
     placeholder: '0 issue "caa.example.com"',
+    format: "Format: [flag] [tag] [value]",
   },
   NS: { label: "NS – Name servers for a hosted zone", placeholder: "ns1.amazon.com" },
 };
@@ -71,8 +79,22 @@ const TYPE_ORDER: (RecordType | { value: string; label: string })[] = [
   { value: "SVCB", label: "SVCB - Delivers extensible configuration information for accessing service endpoints." },
 ];
 
-export function recordTypeLabel(type: RecordType, privateZone: boolean): string {
-  return type === "NS" && privateZone ? NS_PRIVATE_LABEL : RECORD_TYPES[type].label;
+// SOA is never created, only edited (its type is shown read-only).
+const SOA: TypeInfo = {
+  label: "SOA – Start of authority record",
+  placeholder: "ns.example.net. hostmaster.example.com. 1 7200 900 1209600 86400",
+  format:
+    "Format: [authority-domain] [hostmaster-email-address] [zone-serial-number] [refresh-time] " +
+    "[retry-time] [expire-time] [negative caching TTL]",
+};
+
+/** Texts for any record's type, including the zone's own SOA record. */
+export function typeInfo(type: string): TypeInfo {
+  return type === "SOA" ? SOA : RECORD_TYPES[type as RecordType];
+}
+
+export function recordTypeLabel(type: string, privateZone: boolean): string {
+  return type === "NS" && privateZone ? NS_PRIVATE_LABEL : typeInfo(type).label;
 }
 
 /** The Record type dropdown's options. */

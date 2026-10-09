@@ -11,15 +11,14 @@ import StatusIndicator from "@cloudscape-design/components/status-indicator";
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 
-import RecordFields, { type RecordDraft } from "@/components/RecordFields";
+import RecordFields, { draftNameError, draftToInput, type RecordDraft } from "@/components/RecordFields";
 import RecordsTable from "@/components/RecordsTable";
 import { InfoLink } from "@/components/ZoneFormParts";
 import ZoneLoadError from "@/components/ZoneLoadError";
-import type { CreateRecordInput } from "@/lib/api";
 import { useNotifyChangeSubmitted } from "@/lib/changes";
 import { useConsolePage } from "@/lib/console-page";
 import { apiErrorNotification, useNotifications } from "@/lib/notifications";
-import { DEFAULT_TTL, valuesFromText } from "@/lib/recordTypes";
+import { DEFAULT_TTL } from "@/lib/recordTypes";
 import { useCreateRecords } from "@/lib/records";
 import { displayName, useZone } from "@/lib/zones";
 
@@ -30,24 +29,6 @@ import styles from "./page.module.css";
 type DraftRow = RecordDraft & { key: number };
 let nextKey = 0;
 const newDraft = (): DraftRow => ({ key: nextKey++, subdomain: "", type: "A", value: "", ttl: String(DEFAULT_TTL) });
-
-/** The console's check before calling the API; every other rule is the backend's (error banner). */
-function nameError(draft: RecordDraft): string | undefined {
-  return draft.type === "NS" && draft.subdomain.trim() === "" ? "Record name is required for NS records." : undefined;
-}
-
-/** A draft as the API takes it: the full name, and the values one per non-blank line. */
-function toInput(draft: RecordDraft, zoneName: string): CreateRecordInput {
-  const subdomain = draft.subdomain.trim();
-  const ttl = draft.ttl.trim();
-  return {
-    name: subdomain ? `${subdomain}.${zoneName}` : zoneName,
-    type: draft.type,
-    // Not a whole number: NaN is sent as null, and the API reports the TTL as invalid.
-    ttl: /^\d+$/.test(ttl) ? Number(ttl) : NaN,
-    values: valuesFromText(draft.value),
-  };
-}
 
 /** The console's "Create record" page in Quick create mode (screenshots 04, 05, Creating_Multiple_REcords). */
 export default function CreateRecordPage({ params }: PageProps<"/hosted-zones/[zoneId]/create-record">) {
@@ -88,7 +69,7 @@ export default function CreateRecordPage({ params }: PageProps<"/hosted-zones/[z
 
   const submit = () => {
     setSubmitted(true);
-    if (drafts.some(nameError) || createRecords.isPending) return;
+    if (drafts.some(draftNameError) || createRecords.isPending) return;
     if (errorNotificationId) {
       dismiss(errorNotificationId);
       setErrorNotificationId(null);
@@ -96,7 +77,7 @@ export default function CreateRecordPage({ params }: PageProps<"/hosted-zones/[z
 
     const progressId = notify({ type: "info", loading: true, header: `Creating record(s) for ${zoneName}` });
     createRecords.mutate(
-      drafts.map((draft) => toInput(draft, zone.name)),
+      drafts.map((draft) => draftToInput(draft, zone.name)),
       {
         onSuccess: ({ records, change_info }) => {
           dismiss(progressId);
@@ -186,7 +167,7 @@ export default function CreateRecordPage({ params }: PageProps<"/hosted-zones/[z
                     onChange={(changed) => updateDraft(draft.key, changed)}
                     zoneName={zone.name}
                     privateZone={zone.type === "private"}
-                    nameError={submitted ? nameError(draft) : undefined}
+                    nameError={submitted ? draftNameError(draft) : undefined}
                   />
                 </ExpandableSection>
               </div>
