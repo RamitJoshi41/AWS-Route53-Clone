@@ -128,14 +128,16 @@ class DnsRecord(Base):
 
     __tablename__ = "records"
     __table_args__ = (
+        # One record set per name and type in a zone (with simple routing, Route 53
+        # has the same rule). Its index also serves "records of zone X", because
+        # zone_id is the leftmost column, so zone_id needs no index of its own.
+        UniqueConstraint("zone_id", "name", "type", name="uq_records_zone_id_name_type"),
         CheckConstraint(_in_list("type", RECORD_TYPES), name="type"),
         CheckConstraint("ttl >= 0", name="ttl_non_negative"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    zone_id: Mapped[str] = mapped_column(
-        ForeignKey("hosted_zones.id", ondelete="CASCADE"), index=True
-    )
+    zone_id: Mapped[str] = mapped_column(ForeignKey("hosted_zones.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(255))
     type: Mapped[str] = mapped_column(String(10))
     ttl: Mapped[int] = mapped_column(Integer)

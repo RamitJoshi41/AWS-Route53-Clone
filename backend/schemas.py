@@ -1,11 +1,12 @@
 """Pydantic request/response models (the API's JSON contract, separate from the ORM)."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from models import DnsRecord, HostedZone
+from record_values import MAX_INT32
 from security import BCRYPT_MAX_PASSWORD_BYTES
 
 
@@ -117,6 +118,63 @@ class RecordOut(BaseModel):
     ttl: int
     # Stored in the `rdata` column (see models.DnsRecord).
     values: list[str] = Field(validation_alias="rdata")
+
+
+# --- Records --------------------------------------------------------------------
+
+# The types a user can create: the console's list minus the ones the clone doesn't
+# implement. SOA is missing on purpose: Route 53 creates it with the zone, and it
+# can only be edited.
+CreatableRecordType = Literal["A", "AAAA", "CAA", "CNAME", "MX", "NS", "PTR", "SRV", "TXT"]
+Ttl = Annotated[int, Field(ge=0, le=MAX_INT32)]
+# 4000 characters: Route 53's limit for one value (a TXT record's strings together).
+RecordValues = Annotated[list[Annotated[str, Field(max_length=4000)]], Field(min_length=1)]
+
+
+class RecordCreate(BaseModel):
+    """One record set to create. Values are checked per type by record_values.py,
+    in the service, so their errors read like Route 53's."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Fully qualified, as in the Route 53 API: "www.example.com" (trailing dot optional).
+    name: str = Field(max_length=1024)
+    type: CreatableRecordType
+    ttl: Ttl
+    values: RecordValues
+
+
+class RecordBatchCreate(BaseModel):
+    """POST body: the console's "Create records" sends every record on the form at once."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    records: list[RecordCreate] = Field(min_length=1, max_length=100)
+
+
+class RecordUpdate(BaseModel):
+    """PATCH body. A record's name and type can't change (the console's edit panel
+    shows them read-only), so only the TTL and the values can. Omitted fields stay."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ttl: Ttl | None = None
+    values: RecordValues | None = None
+
+
+class RecordIds(BaseModel):
+    """Body of a bulk delete: the IDs of the selected records."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ids: list[int] = Field(min_length=1, max_length=1000)
+
+    @field_validator("ids")
+    @classmethod
+    def no_duplicates(cls, ids: list[int]) -> list[int]:
+        if len(ids) != len(set(ids)):
+            raise ValueError("the same record is listed more than once")
+        return ids
 
 
 class ZoneOut(BaseModel):

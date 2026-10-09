@@ -5,13 +5,14 @@ This document outlines the SQLite database schema for the AWS Route53 Clone.
 ## Migrations & connection settings
 
 *   The schema is managed with **Alembic** (`backend/alembic/versions/`). Create or upgrade the DB with `cd backend && uv run alembic upgrade head`.
-*   **Current revision: `0003`.**
+*   **Current revision: `0004`.**
 
     | Revision | Contents |
     |---|---|
     | `0001` | Baseline. Empty; creates `route53.db` (plus Alembic's `alembic_version` table). |
     | `0002` | `users` and `sessions` tables, plus the seeded demo user `admin` / `password123`. |
     | `0003` | `hosted_zones`, `hosted_zone_vpcs` and `records` tables. |
+    | `0004` | `UNIQUE(zone_id, name, type)` on `records` (one record set per name and type); drops `ix_records_zone_id`, which the new index covers. |
 
 *   `PRAGMA foreign_keys=ON` is set on every SQLite connection, so `FOREIGN KEY` constraints and `ON DELETE CASCADE` are actually enforced.
 *   Migrations run in batch mode (`render_as_batch=True`), which SQLite needs for column changes.
@@ -74,7 +75,7 @@ One row per hosted zone. Each zone belongs to the user who created it.
 *   `UNIQUE(user_id, name)` (`uq_hosted_zones_user_id_name`): a user can't own two zones with the same normalized name, so `Example.COM` and `example.com.` collide. Real Route 53 allows duplicate names (the description tells them apart); the clone rejects them with `409` to keep the list unambiguous. Two *different* users can each own `example.com`.
 *   That unique index also answers "all zones of user X", because `user_id` is its leftmost column, so `user_id` has no separate index.
 
-**Not stored: `record_count`.** It is computed when zones are read (a `COUNT` over `records` with a join and `GROUP BY`, using `ix_records_zone_id`), so it can never drift from the real number of records. A stored counter would need updating on every record insert and delete.
+**Not stored: `record_count`.** It is computed when zones are read (a `COUNT` over `records` with a join and `GROUP BY`, using the `records` unique index, whose leftmost column is `zone_id`), so it can never drift from the real number of records. A stored counter would need updating on every record insert and delete.
 
 ### `hosted_zone_vpcs` ✅ (revision 0003)
 The VPCs associated with a **private** hosted zone. The console lets you add several (`Add VPC`), so this is a child table rather than a column on `hosted_zones`. Public zones have no rows here. That rule ("private needs at least one VPC, public needs none") is enforced by the API, since SQLite can't express it as a constraint.
@@ -89,23 +90,26 @@ The VPCs associated with a **private** hosted zone. The console lets you add sev
 *Constraints:* `UNIQUE(zone_id, vpc_id)` (`uq_hosted_zone_vpcs_zone_id_vpc_id`): the same VPC can't be associated twice with one zone. Its index also serves "VPCs of zone X".
 
 ### `records` ✅ (revision 0003)
-DNS record sets: one row per name + type, holding one or more values. Every new zone gets two rows straight away, an `NS` record (4 name servers, TTL 172800) and an `SOA` record (TTL 900), as in Route 53. Phase 3 only creates these default records; creating, editing and deleting records comes in Phase 4.
+DNS record sets: one row per name + type, holding one or more values. Every new zone gets two rows straight away, an `NS` record (4 name servers, TTL 172800) and an `SOA` record (TTL 900), as in Route 53. The records API (Phase 4) creates, edits and deletes the rest.
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
-| `id` | INTEGER | PK | Auto-increment. Internal only; Route 53 shows no ID for simple records. |
-| `zone_id` | VARCHAR(32) | NOT NULL, FK → `hosted_zones.id` `ON DELETE CASCADE`, indexed (`ix_records_zone_id`) | |
-| `name` | VARCHAR(255) | NOT NULL | Fully qualified, e.g. `www.example.com.` |
+| `id` | INTEGER | PK | Auto-increment. Addresses a record in the API's URLs; Route 53 shows no ID for simple records. |
+| `zone_id` | VARCHAR(32) | NOT NULL, FK → `hosted_zones.id` `ON DELETE CASCADE` | Indexed through the unique constraint below |
+| `name` | VARCHAR(255) | NOT NULL | Fully qualified and normalized like zone names (lowercase, one trailing dot), e.g. `www.example.com.`; `*.example.com.` for a wildcard |
 | `type` | VARCHAR(10) | NOT NULL, CHECK in `A, AAAA, CAA, CNAME, MX, NS, PTR, SOA, SRV, TXT` (`ck_records_type`) | |
-| `ttl` | INTEGER | NOT NULL, CHECK `ttl >= 0` (`ck_records_ttl_non_negative`) | Seconds |
+| `ttl` | INTEGER | NOT NULL, CHECK `ttl >= 0` (`ck_records_ttl_non_negative`) | Seconds; the API also caps it at 2147483647, Route 53's maximum |
 | `rdata` | JSON | NOT NULL | JSON list of value strings (see below). The API exposes it as `values`. |
 | `created_at` | DATETIME | NOT NULL | UTC |
 | `updated_at` | DATETIME | NOT NULL | UTC, refreshed on every update |
 
-**Why `rdata` is a JSON list.** A record can hold several values (an `A` record with two IPs: `["192.0.2.1", "192.0.2.2"]`; the NS record's four name servers). Each value is stored as one string in the record's standard text form, e.g. `"10 mail.example.com."` for MX. That is the same shape the Route 53 API uses (`ResourceRecords: [{"Value": "..."}]`) and what the console shows in the "Value/Route traffic to" column. A JSON list keeps a record set in one row, which is how the UI reads and edits it. The alternative was a `record_values` child table, which needs a join for every read with no benefit at this scale. Per-type fields (MX priority, SRV weight/port) stay inside the string; Phase 4 validates their format per type.
+**Why `rdata` is a JSON list.** A record can hold several values (an `A` record with two IPs: `["192.0.2.1", "192.0.2.2"]`; the NS record's four name servers). Each value is stored as one string in the record's standard text form, e.g. `"10 mail.example.com."` for MX. That is the same shape the Route 53 API uses (`ResourceRecords: [{"Value": "..."}]`) and what the console shows in the "Value/Route traffic to" column. A JSON list keeps a record set in one row, which is how the UI reads and edits it. The alternative was a `record_values` child table, which needs a join for every read with no benefit at this scale. Per-type fields (MX priority, SRV weight/port, CAA flag/tag) stay inside the string; `backend/record_values.py` checks and normalizes their format per type before a row is written, so every stored value is valid for its type.
 
 **Why the column is named `rdata`.** It is the DNS term for a record's data (RFC 1035 "RDATA"). `values` is an SQL keyword, so raw SQL would have to quote it every time.
 
 **Zone deletion rule (enforced by the API, Phase 3 Task 3.2).** As in Route 53, a zone can only be deleted when it contains nothing but its apex `NS` and `SOA` records. Otherwise the API answers `409` with Route 53's message. When deletion is allowed, the `ON DELETE CASCADE` above removes those two records.
 
-*Planned for Phase 4:* any uniqueness rule for records (e.g. one `CNAME` per name) is decided with the record CRUD design, together with routing policies.
+*Constraints & indexes:*
+*   `UNIQUE(zone_id, name, type)` (`uq_records_zone_id_name_type`, revision `0004`): one record set per name and type in a zone, Route 53's rule with simple routing. The API checks first to return Route 53's message as a `409`; the constraint still stops a duplicate when two requests race. Its index also answers "records of zone X" (`zone_id` is the leftmost column), so the separate `ix_records_zone_id` from `0003` was dropped.
+*   Not expressible as a constraint, so enforced by the API (`services/records.py`): a `CNAME` can't share its name with any other record or sit at the zone apex, and the `SOA` and apex `NS` records can't be deleted.
+*   If weighted or latency routing were added later, several record sets could share a name and type (told apart by a set identifier), and this constraint would gain a `set_identifier` column.

@@ -4,8 +4,6 @@ Base URL: `/api` (or relative if proxied).
 
 In development the frontend calls `http://localhost:3000/api/...`, which Next.js proxies to FastAPI on `http://localhost:8000/api/...`. Interactive OpenAPI docs: `http://localhost:8000/docs`.
 
-> The **DNS Records** section is still the draft design; it is finalized in Phase 4. Everything above it is implemented.
-
 ## Conventions
 
 ### Errors
@@ -207,42 +205,79 @@ The mocked VPC catalog for private zones: the 35 regions offered by the console'
 
 ## DNS Records
 
-### `GET /zones/{id}/records`
-Lists records for a specific hosted zone.
-*   **Response (200):**
+All endpoints require a session. They first look up the zone exactly like `GET /zones/{id}`, so a missing zone or another user's zone answers `404 {"detail": "No hosted zone found with ID: …"}`, and so do the records in it.
+
+### The record object
+```json
+{"id": 5, "name": "www.example.com.", "type": "A", "ttl": 300, "values": ["192.0.2.1", "192.0.2.2"]}
+```
+| Field | Notes |
+|---|---|
+| `id` | Integer, internal. Route 53 shows no ID for simple records; the clone needs one to address a record in URLs. |
+| `name` | Fully qualified, normalized: lowercase, one trailing dot. `*.example.com.` is a wildcard record. |
+| `type` | `A`, `AAAA`, `CAA`, `CNAME`, `MX`, `NS`, `PTR`, `SRV`, `TXT`, or `SOA` (created with the zone; it can be edited but not created or deleted) |
+| `ttl` | Seconds, 0–2147483647 |
+| `values` | One string per value, in the type's standard text form: what the console's Value box takes, one per line |
+
+Every record uses the **Simple** routing policy and is not an alias. Other routing policies, alias records and health checks aren't implemented.
+
+### Rules
+The same rules Route 53 applies with simple routing:
+*   **One record set per name and type** in a zone. A second one is `409`: `Tried to create resource record set [name='www.example.com.', type='A'] but it already exists`. The database enforces this too (`UNIQUE(zone_id, name, type)`).
+*   **The name must be in the zone:** `www.example.com` or the apex `example.com` in zone `example.com.`; otherwise `400 RRSet with DNS name www.other.com. is not permitted in zone example.com.` Labels may use `a-z`, `0-9`, `-` and `_` (for `_dmarc`, `_sip._tcp`); `*` only as the whole first label.
+*   **CNAME:** not at the zone apex (`400 … is not permitted at apex in zone example.com.`), exactly one value (`400`), and no other record can share its name (`409 … conflicts with other records with the same DNS name …` or `409 … a conflicting RRSet of type CNAME with the same DNS name already exists …`).
+*   **The SOA record and the apex NS record can't be deleted** (`400 A HostedZone must contain exactly one SOA record.` / `400 A HostedZone must contain at least one NS record for the zone itself.`). Both can be edited. NS records for subdomains (delegations) can be created and deleted freely.
+*   **Values**, checked per type by `backend/record_values.py`. A broken value is a `400` in Route 53's style, `Invalid Resource Record: FATAL problem: <problem> encountered with '<value>'`:
+
+    | Type | Format (the console's placeholder) | Checks |
+    |---|---|---|
+    | `A` | `192.0.2.235` | IPv4 address (`ARRDATAIllegalIPv4Address (Value is not a valid IPv4 address)`) |
+    | `AAAA` | `2001:0db8::8a2e:0370:bab5` | IPv6 address (`AAAARRDATAIllegalIPv6Address (Value is not a valid IPv6 address)`) |
+    | `CNAME`, `PTR`, `NS` | `www.example.com` | Host name |
+    | `MX` | `10 mailserver.example.com` | Priority 0–65535, host name |
+    | `SRV` | `1 10 5269 xmpp-server.example.com` | Priority, weight and port 0–65535, host name |
+    | `TXT` | `"Sample Text Entries"` | One or more quoted strings, each at most 255 bytes. A single word without spaces is accepted and stored quoted (`hello` → `"hello"`); unquoted text with spaces is `InvalidCharacterString (Value should be enclosed in quotation marks)`. |
+    | `CAA` | `0 issue "caa.example.com"` | Flag 0–255, tag `issue`/`issuewild`/`issuemail`/`iodef`, one value (quoted on save) |
+    | `SOA` | `ns.example.net. hostmaster.example.com. 1 7200 900 1209600 86400` | Two host names and five numbers (edit only) |
+
+    Surrounding spaces are trimmed, extra spaces between fields collapse to one, and leading zeros in numbers are dropped (`010` → `10`). A value listed twice is `400 Duplicate Resource Record: '<value>'` (case-insensitive except inside TXT/CAA text; IPv6 addresses compare by value).
+
+### `GET /zones/{id}/records` ✅ implemented
+The zone's records, in creation order (the default NS and SOA first). The same list is also part of `GET /zones/{id}`.
+*   **Response (200):** `[<record>, ...]`
+*   **Curl:** `curl -b jar.txt http://localhost:8000/api/zones/Z0GLN2OXWU6NXVLK4MRVZ/records`
+
+### `POST /zones/{id}/records` ✅ implemented
+Creates one or more records, **all or none**: the console's "Create records" button submits every record on the form together, and Route 53 applies a change batch atomically. Each record is checked against the zone and the records before it in the same request.
+*   **Request body** (1–100 records; unknown fields are rejected):
     ```json
-    [
-      {
-        "id": "uuid-123",
-        "zone_id": "Z12345",
-        "name": "www.example.com.",
-        "type": "A",
-        "ttl": 300,
-        "routing_policy": "Simple",
-        "values": ["192.0.2.1"]
-      }
-    ]
+    {"records": [
+      {"name": "www.example.com", "type": "A", "ttl": 300, "values": ["192.0.2.1", "192.0.2.2"]},
+      {"name": "example.com", "type": "MX", "ttl": 300, "values": ["10 mail.example.com"]}
+    ]}
     ```
+    `name` is fully qualified, as in the Route 53 API (the trailing dot is optional). The console's form adds the zone name to what you type in its "subdomain" box.
+*   **Response (201):** the created records, in request order: `[<record>, ...]`
+*   **Response (400):** a broken rule or value (see above), the same name and type twice in one request (`The request contains an invalid set of changes for a resource record set 'A www.example.com.'`), `type: SOA`, or request validation such as `records.0.ttl: Input should be greater than or equal to 0`.
+*   **Response (409):** the record set already exists, or a CNAME conflict.
+*   **Curl:** `curl -b jar.txt -X POST http://localhost:8000/api/zones/Z0GLN2OXWU6NXVLK4MRVZ/records -H "Content-Type: application/json" -d '{"records": [{"name": "www.example.com", "type": "A", "ttl": 300, "values": ["192.0.2.1"]}]}'`
 
-### `POST /zones/{id}/records`
-Creates a new DNS record.
-*   **Request Body:**
-    ```json
-    {
-      "name": "api.example.com",
-      "type": "CNAME",
-      "ttl": 300,
-      "routing_policy": "Simple",
-      "values": ["example.com."]
-    }
-    ```
-*   **Response (201):** Returns created record object.
+### `PATCH /zones/{id}/records/{record_id}` ✅ implemented
+Edits a record's TTL and/or values. As in the console's edit panel, the name and type can't change (sending them is `400 … Extra inputs are not permitted`). Only the fields sent are changed.
+*   **Request body:** `{"ttl": 60, "values": ["192.0.2.1"]}`. Both optional; `values` replaces the whole list and is checked against the record's type.
+*   **Response (200):** the updated record.
+*   **Response (400):** a broken value rule; **(404)** `No record found with ID: 42` (also for a record of another zone).
+*   **Curl:** `curl -b jar.txt -X PATCH http://localhost:8000/api/zones/Z0GLN2OXWU6NXVLK4MRVZ/records/5 -H "Content-Type: application/json" -d '{"ttl": 60}'`
 
-### `PUT /zones/{id}/records/{record_id}`
-Updates an existing DNS record.
-*   **Request Body:** (Same as POST)
-*   **Response (200):** Returns updated record object.
+### `DELETE /zones/{id}/records/{record_id}` ✅ implemented
+Deletes one record.
+*   **Response (204):** no body.
+*   **Response (400):** the SOA record or the apex NS record; **(404)** unknown record.
+*   **Curl:** `curl -b jar.txt -X DELETE http://localhost:8000/api/zones/Z0GLN2OXWU6NXVLK4MRVZ/records/5`
 
-### `DELETE /zones/{id}/records/{record_id}`
-Deletes a DNS record.
-*   **Response (204):** No Content.
+### `POST /zones/{id}/records/batch-delete` ✅ implemented
+Deletes several records, **all or none**: the console's "Delete N selected records?" dialog. A `POST` with a body, because a `DELETE` body is ignored by some clients and proxies.
+*   **Request body:** `{"ids": [5, 6]}` (1–1000 IDs, no repeats)
+*   **Response (204):** no body.
+*   **Response (400):** the list includes the SOA record or the apex NS record (nothing is deleted), or an ID is repeated; **(404)** an ID isn't a record of this zone (nothing is deleted).
+*   **Curl:** `curl -b jar.txt -X POST http://localhost:8000/api/zones/Z0GLN2OXWU6NXVLK4MRVZ/records/batch-delete -H "Content-Type: application/json" -d '{"ids": [5, 6]}'`

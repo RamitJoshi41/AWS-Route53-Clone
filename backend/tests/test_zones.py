@@ -318,9 +318,8 @@ def test_delete_is_blocked_while_other_records_exist(
     logged_in_client: TestClient, db_session_factory: sessionmaker[Session]
 ) -> None:
     zone = create(logged_in_client)
-    with db_session_factory() as db:  # record CRUD arrives in Phase 4; insert directly
-        db.add(DnsRecord(zone_id=zone["id"], name="www.example.com.", type="A", ttl=300, rdata=["192.0.2.1"]))
-        db.commit()
+    record = {"name": "www.example.com", "type": "A", "ttl": 300, "values": ["192.0.2.1"]}
+    assert logged_in_client.post(f"/api/zones/{zone['id']}/records", json={"records": [record]}).status_code == 201
 
     response = logged_in_client.delete(f"/api/zones/{zone['id']}")
     assert response.status_code == 409
