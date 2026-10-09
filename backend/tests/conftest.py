@@ -16,6 +16,8 @@ from security import hash_password
 # doesn't exist here; the `user` fixture creates its own known account.
 TEST_USERNAME = "alice"
 TEST_PASSWORD = "correct-horse-battery"
+OTHER_USERNAME = "bob"
+OTHER_PASSWORD = "bobs-own-password"
 
 
 @pytest.fixture
@@ -47,6 +49,16 @@ def user(db_session_factory: sessionmaker[Session]) -> User:
     """A user with a known password (TEST_USERNAME / TEST_PASSWORD)."""
     with db_session_factory() as db:
         new_user = User(username=TEST_USERNAME, password_hash=hash_password(TEST_PASSWORD))
+        db.add(new_user)
+        db.commit()
+        return new_user
+
+
+@pytest.fixture
+def other_user(db_session_factory: sessionmaker[Session]) -> User:
+    """A second account (OTHER_USERNAME / OTHER_PASSWORD), for ownership tests."""
+    with db_session_factory() as db:
+        new_user = User(username=OTHER_USERNAME, password_hash=hash_password(OTHER_PASSWORD))
         db.add(new_user)
         db.commit()
         return new_user

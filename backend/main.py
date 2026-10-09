@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from config import get_settings
-from routers import auth, health
+from routers import auth, health, vpcs, zones
 
 settings = get_settings()
 
@@ -38,3 +38,5 @@ async def validation_error_handler(_request: Request, exc: RequestValidationErro
 
 app.include_router(health.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
+app.include_router(zones.router, prefix="/api")
+app.include_router(vpcs.router, prefix="/api")

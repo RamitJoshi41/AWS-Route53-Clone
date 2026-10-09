@@ -19,11 +19,11 @@ The session is an **httpOnly cookie**. If the browser called `:8000` directly, t
 
 ## Request flow (example: health check)
 
-1. `BackendStatus` (client component) runs `getHealth()` from `src/lib/api.ts` in a `useEffect`.
-2. `fetch("/api/health")` → Next.js server matches the rewrite and forwards it to `${BACKEND_URL}/api/health`.
+1. A client (a monitor, or `curl http://localhost:3000/api/health`) requests `/api/health` from the Next.js origin.
+2. The Next.js server matches the rewrite and forwards it to `${BACKEND_URL}/api/health`.
 3. FastAPI resolves the `get_db` dependency (one SQLAlchemy session per request) and runs the sync `def` handler in its threadpool.
 4. The handler executes `SELECT 1`; it returns `200` or `503` with `"database": "error"`.
-5. `apiFetch` returns the JSON, or throws `ApiError(status, detail, body)` for non-2xx; the component maps that to a Cloudscape `StatusIndicator`.
+5. In the frontend, every call goes through `apiFetch` (`src/lib/api.ts`), which returns the JSON or throws `ApiError(status, detail, body)` for non-2xx.
 
 ## Authentication
 
@@ -72,15 +72,18 @@ A page reload repeats the last three steps. That is the session restore.
 
 ## Frontend Structure (Next.js 16, App Router)
 
-*   **Routing:** App Router (`src/app/`). `/login` is public. Every signed-in page lives in the `(console)` route group, whose layout wraps it in `<AuthGuard>` and the top navigation. Route groups add no URL segment, so the home page is still `/`. `src/proxy.ts` is Next 16's replacement for `middleware.ts`.
+*   **Routing:** App Router (`src/app/`). `/login` is public. Every signed-in page lives in the `(console)` route group, whose layout wraps it in `<AuthGuard>` and the console shell. Route groups add no URL segment. `/` redirects to `/hosted-zones` until the Dashboard exists. `src/proxy.ts` is Next 16's replacement for `middleware.ts`.
+    *   `/hosted-zones`: list · `/hosted-zones/create` · `/hosted-zones/[zoneId]`: details · `/hosted-zones/[zoneId]/edit`
+    *   `(console)/[...slug]`: any other side-navigation link shows "Coming soon"; unknown paths are a 404.
 *   **Styling / components:** AWS **Cloudscape Design System**, the open-source design system the real AWS console is built with. `@cloudscape-design/global-styles` is imported once in the root layout (normalize, Open Sans fonts, design tokens). Every Cloudscape component ships with `'use client'`, so server components can render them directly.
 *   **Rendering config:** `cacheComponents` is **disabled** (see DECISIONS.md): Cloudscape calls `Date.now()` during render, which Cache Components rejects at build time.
 *   **API client layer:** `src/lib/api.ts`. `apiFetch<T>()` prefixes `/api`, sends JSON, parses responses safely (including non-JSON proxy errors) and throws a typed `ApiError` carrying the backend's `{"detail": "..."}` message. Components never call `fetch` directly.
 *   **State management:** TanStack React Query for server state (one `QueryClient` per tab, created in `src/app/providers.tsx`; 4xx errors are never retried). Local component state for UI. Auth hooks live in `src/lib/auth.ts`.
-*   **Component architecture (planned):**
-    *   `Layouts`: global shell (top navigation, side navigation, breadcrumbs).
-    *   `Pages`: composed views matching Route 53 routes.
-    *   `Components`: Cloudscape-based feature components (e.g. hosted zones table, record forms).
+*   **Console shell:** `ConsoleShell` (Cloudscape `AppLayoutToolbar`) draws the top navigation, side navigation (`lib/navigation.ts`), breadcrumbs, the stacked notifications and the split panel. Pages don't render these themselves. They declare what they need with `useConsolePage({ breadcrumbs, contentType, splitPanel })` (`lib/console-page.tsx`), and the shell renders it.
+*   **Notifications:** `lib/notifications.tsx` holds the Flashbar messages above the page, so a message survives navigation (e.g. "created" shown on the details page the create page sends you to). `notify` returns an id, so a page can later `replace` it (the blue "Creating…" message becomes the green or red result) or `dismiss` it. Every API error uses one format, `apiErrorNotification`: "Error occurred / Please try again later. / (<API detail>)", as in the console.
+*   **Zone data:** `lib/zones.ts` wraps `lib/api.ts` in React Query hooks. `["zones"]` is the list and `["zones", id]` one zone with its records. After a mutation the list is invalidated, and the details page reuses the zone returned by create or edit without fetching it again.
+*   **Components:** Cloudscape-based building blocks shared between pages: `ZoneDetailsFields` (details page and list split panel), `ZoneFormParts` + `VpcAssociations` (create and edit pages), `RecordsTable`, `DeleteZoneModal`, `ZoneLoadError`, `ZoneFeatureTabs`.
+*   **Tables:** `@cloudscape-design/collection-hooks` (`useCollection`) does filtering, sorting, pagination and selection in the browser. Each row is precomputed as the text its columns show, so search and sort work on what the user sees.
 
 ## Backend Structure (FastAPI)
 
@@ -89,11 +92,14 @@ backend/
   main.py          app instance, CORS middleware, 400 validation handler, routers under /api
   config.py        Settings (pydantic-settings): DATABASE_URL, CORS_ORIGINS, session TTL/cookie
   database.py      build_engine(), engine, SessionLocal, Base (naming convention), get_db()
-  models.py        ORM models: User, UserSession (+ utcnow helper)
-  schemas.py       Pydantic request/response models (LoginRequest, UserOut)
+  models.py        ORM models: User, UserSession, HostedZone, HostedZoneVpc, DnsRecord (+ utcnow helper)
+  schemas.py       Pydantic request/response models (auth, zones, VPCs, records)
   security.py      bcrypt hash/verify, session token generation + SHA-256 hashing
   dependencies.py  get_current_user (session check for protected endpoints)
-  routers/         one module per resource (health.py, auth.py; zones/records to come)
+  services/        business rules (zones.py: IDs, name servers, default records, CRUD rules)
+  dns_names.py     domain name validation and normalization ("Example.COM" -> "example.com.")
+  mock_vpcs.py     the mocked Regions and VPCs offered for private zones
+  routers/         one module per resource (health.py, auth.py, zones.py, vpcs.py)
   alembic/         env.py + versions/ (migration history)
   tests/           pytest, with an isolated temp SQLite DB per test
 ```
@@ -104,14 +110,21 @@ backend/
 *   **Sync handlers:** SQLAlchemy is used synchronously, so DB-touching endpoints are declared with `def` (not `async def`). FastAPI runs them in a threadpool, keeping the event loop free.
 *   **Error shape:** every error response is `{"detail": "..."}`. `HTTPException` produces it natively, and a global `RequestValidationError` handler turns FastAPI's default `422` (a list of error objects) into `400 {"detail": "<field>: <message>"}`.
 *   **Auth dependency:** protected endpoints declare `Depends(get_current_user)` (or `APIRouter(dependencies=[...])` for a whole router). The cookie is read via FastAPI's `APIKeyCookie`, so `/docs` marks protected endpoints with a lock.
-*   **Layers:** routers (HTTP) → `schemas.py` (validation and response shape) → `models.py` (ORM). Service/CRUD functions are added when zone and record logic grows beyond a few lines.
+*   **Layers:** routers (HTTP only) → `services/` (the rules, raising `HTTPException` with the API's status codes) → `models.py` (ORM). `schemas.py` validates request bodies and shapes responses. Auth stayed in its router because it's a few lines.
 
 ## Database & Migration Strategy
 
 *   **Engine:** `database.build_engine()` creates the SQLAlchemy engine. For SQLite it sets `check_same_thread=False` (sessions are used from FastAPI's threadpool) and runs `PRAGMA foreign_keys=ON` on every new connection, since SQLite ignores `FOREIGN KEY`/`ON DELETE CASCADE` without it.
 *   **Single source of truth:** the default `DATABASE_URL` is an absolute path to `backend/route53.db`, so the API and Alembic always use the same file whatever the current directory. `alembic.ini` deliberately contains no URL; `alembic/env.py` imports the app's `engine` and `Base.metadata`.
 *   **Migrations:** every schema change is a revision in `alembic/versions/`. `uv run alembic upgrade head` creates or upgrades the DB. `render_as_batch=True` makes Alembic rebuild tables for column changes SQLite can't `ALTER`.
-*   **Current state:** revision `0002`. `0001` (baseline) is empty and only creates the database file. `0002` adds `users` and `sessions` and seeds the demo user. Hosted zones arrive in Phase 3, records in Phase 4.
+*   **Current state:** revision `0003`. `0001` (baseline) is empty and only creates the database file. `0002` adds `users` and `sessions` and seeds the demo user. `0003` adds `hosted_zones`, `hosted_zone_vpcs` and `records`. Details: [DB_SCHEMA.md](DB_SCHEMA.md).
+
+## Hosted zones: how a change flows
+
+1.  **Create:** the create page checks only what the console checks before calling the API (empty name, description length, empty VPC rows). It shows a blue "Creating hosted zone …" message and `POST`s. The backend normalizes the name, checks VPCs against the mock catalog and uniqueness per user, generates the zone ID and four name servers, and inserts the zone with its NS and SOA records in one transaction. The page turns the message green and opens the new zone's details page, using the zone from the response.
+2.  **Edit:** `PATCH` changes the description and, for a private zone, replaces its VPC list. You return to the page you came from (list or details) with "… was successfully updated."
+3.  **Delete:** the dialog asks for `delete` to be typed. The backend refuses with `409` (Route 53's message) while the zone holds records other than its NS and SOA. Otherwise it deletes the zone, and `ON DELETE CASCADE` removes those two records and the VPC rows.
+4.  **Errors:** every `400`/`404`/`409` from the API becomes the red "Error occurred" message with the API's text, as in the console.
 
 ## Why This Stack?
 *   **Next.js + TS:** industry standard for scalable React apps. TypeScript prevents runtime errors and acts as documentation.

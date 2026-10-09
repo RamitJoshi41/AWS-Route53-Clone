@@ -1,5 +1,7 @@
 "use client";
 
+import I18nProvider from "@cloudscape-design/components/i18n";
+import enMessages from "@cloudscape-design/components/i18n/messages/all.en";
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 
@@ -35,5 +37,11 @@ export default function Providers({ children }: { children: ReactNode }) {
   // One client per browser tab, created once (useState initializer), never shared
   // between server requests.
   const [queryClient] = useState(makeQueryClient);
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    // Cloudscape's own English strings for its components (pagination, property
+    // filter, split panel, ...), so they don't each need hand-written labels.
+    <I18nProvider locale="en" messages={[enMessages]}>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </I18nProvider>
+  );
 }

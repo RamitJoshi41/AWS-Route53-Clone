@@ -1,16 +1,20 @@
-import Box from "@cloudscape-design/components/box";
-
 import AuthGuard from "@/components/AuthGuard";
-import ConsoleTopNav from "@/components/ConsoleTopNav";
+import ConsoleShell from "@/components/ConsoleShell";
+import { ConsolePageProvider } from "@/lib/console-page";
+import { NotificationsProvider } from "@/lib/notifications";
 
 // Shell for every signed-in page. "(console)" is a route group: it shares this layout
-// without adding a URL segment, so this page is still served at "/". /login sits
-// outside the group and therefore outside the guard.
+// without adding a URL segment. /login sits outside the group and therefore outside
+// the guard. Being a layout, it stays mounted while you move between console pages,
+// so the side navigation and flash messages persist across navigation.
 export default function ConsoleLayout({ children }: LayoutProps<"/">) {
   return (
     <AuthGuard>
-      <ConsoleTopNav />
-      <Box padding="l">{children}</Box>
+      <NotificationsProvider>
+        <ConsolePageProvider>
+          <ConsoleShell>{children}</ConsoleShell>
+        </ConsolePageProvider>
+      </NotificationsProvider>
     </AuthGuard>
   );
 }

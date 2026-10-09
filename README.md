@@ -8,7 +8,7 @@ A functional clone of the AWS Route 53 web console: hosted zones and DNS records
 | Backend | FastAPI, SQLAlchemy 2, Alembic migrations, bcrypt |
 | Database | SQLite (`backend/route53.db`) |
 
-> **Status:** Phase 2 (mocked authentication) complete: sign in, sign out, session persistence across reloads, and protected routes. Feature progress is tracked in [docs/PLAN.md](docs/PLAN.md).
+> **Status:** Phase 3 (hosted zones) complete: list, search, create (public and private), view, edit and delete hosted zones in a Route 53-style console. DNS record management is next. Feature progress is tracked in [docs/PLAN.md](docs/PLAN.md).
 
 ---
 
@@ -66,6 +66,26 @@ See `backend/.env.example` and `frontend/.env.example`.
 
 ---
 
+## What works today
+
+- **Console layout:** top navigation, Route 53's full side navigation (pages that aren't built yet show "Coming soon"), breadcrumbs, a resizable split panel, and stacked notifications. It also works at phone width.
+- **Hosted zones list:**
+  - Select a zone, then use View details / Edit / Delete.
+  - Search with Route 53's property filter (e.g. `Type : Private`), sortable and resizable columns, pagination, and a Preferences dialog (page size, wrap lines, visible columns, search mode).
+  - The split panel shows the selected zone's details, including its name servers.
+- **Create hosted zone:**
+  - Public or private. A private zone is associated with one or more VPCs from a mocked catalog of 35 Regions.
+  - Field errors show the console's own wording.
+  - Every zone gets its NS and SOA records, with name servers numbered the way Route 53 numbers them.
+- **Zone details:**
+  - Public and private variants.
+  - Records table with its search box and Type / Routing policy / Alias filters.
+  - The Accelerated recovery, DNSSEC signing and Tags tabs show their empty states.
+- **Edit:** the description, and for private zones the associated VPCs.
+- **Delete:** a confirmation dialog where you type `delete`. As in Route 53, a zone that still has records other than NS and SOA can't be deleted. The dialog warns about this, and the API refuses with Route 53's message.
+
+---
+
 ## Architecture overview
 
 ```
@@ -105,19 +125,24 @@ backend/
   main.py            FastAPI app, CORS, global 400 validation handler, router registration
   config.py          typed settings (pydantic-settings)
   database.py        engine, session factory, Base (with constraint naming convention), get_db
-  models.py          ORM models: User, UserSession
+  models.py          ORM models: User, UserSession, HostedZone, HostedZoneVpc, DnsRecord
   schemas.py         Pydantic request/response models
   security.py        bcrypt password hashing, session token generation + hashing
   dependencies.py    get_current_user: the session check every protected endpoint uses
-  routers/           one module per resource (health.py, auth.py)
+  services/          business rules (zones.py: zone IDs, name servers, default records, CRUD)
+  dns_names.py       domain name validation and normalization
+  mock_vpcs.py       mocked Regions and VPCs for private zones
+  routers/           one module per resource (health, auth, zones, vpcs)
   alembic/           migration environment + versions/
   tests/             pytest suite (isolated temp DB per test)
 frontend/
   next.config.ts     /api proxy rewrite
   src/proxy.ts       server-side redirect to /login when there is no session cookie
   src/app/           App Router: root layout + providers, login/, (console)/ protected route group
-  src/components/    Cloudscape-based components (LoginForm, AuthGuard, ConsoleTopNav, ...)
-  src/lib/           api.ts (typed fetch wrapper), auth.ts (auth hooks), redirect.ts
+                     with hosted-zones/ (list, create, [zoneId] details, [zoneId]/edit)
+  src/components/    Cloudscape-based components (ConsoleShell, RecordsTable, DeleteZoneModal, ...)
+  src/lib/           api.ts (typed fetch wrapper), auth.ts, zones.ts (data hooks), navigation.ts,
+                     notifications.tsx, console-page.tsx
 docs/                plan, architecture, schema, API, decisions
 ```
 
@@ -125,14 +150,17 @@ docs/                plan, architecture, schema, API, decisions
 
 ## Database schema
 
-SQLite, managed by Alembic (`backend/alembic/versions/`). Current revision: **0002**.
+SQLite, managed by Alembic (`backend/alembic/versions/`). Current revision: **0003**.
 
 | Table | Purpose | Key columns |
 |---|---|---|
 | `users` | Login accounts | `id` PK, `username` UNIQUE, `password_hash` (bcrypt), `created_at` |
 | `sessions` | Active logins | `token_hash` PK (SHA-256 of the cookie token), `user_id` FK → `users.id` `ON DELETE CASCADE`, `created_at`, `expires_at` (indexed) |
+| `hosted_zones` | Hosted zones | `id` PK (Route 53-style, e.g. `Z02020872110QTE2FC2NK`), `user_id` FK `ON DELETE CASCADE`, `name` (`example.com.`), `type` (`public`/`private`), `description`, timestamps. `UNIQUE(user_id, name)` |
+| `hosted_zone_vpcs` | VPCs of a private zone | `id` PK, `zone_id` FK `ON DELETE CASCADE`, `region`, `vpc_id`. `UNIQUE(zone_id, vpc_id)` |
+| `records` | DNS records | `id` PK, `zone_id` FK `ON DELETE CASCADE` (indexed), `name`, `type`, `ttl`, `rdata` (JSON list of values), timestamps |
 
-Planned: `hosted_zones` (Route 53-style string IDs such as `Z148QEXAMPLE8V`, owned by a user via `user_id`) and `records` (FK to zone with `ON DELETE CASCADE`). Full design: [docs/DB_SCHEMA.md](docs/DB_SCHEMA.md).
+A zone's record count isn't stored; it's counted in the same query that lists the zones. Full design and reasoning: [docs/DB_SCHEMA.md](docs/DB_SCHEMA.md).
 
 ---
 
@@ -146,7 +174,12 @@ All endpoints live under `/api`. Errors use the shape `{"detail": "..."}`. Valid
 | POST | `/api/auth/login` | ✅ | `{username, password}` → `200 {id, username}` + httpOnly `session` cookie; `401` on bad credentials |
 | POST | `/api/auth/logout` | ✅ | Deletes the session and clears the cookie. `204`, idempotent |
 | GET | `/api/auth/me` | ✅ | Current user `200 {id, username}`, or `401` |
-| GET/POST/PATCH/DELETE | `/api/zones[/{id}]` | Phase 3 | Hosted zones CRUD |
+| GET | `/api/zones` | ✅ | The user's zones, each with its record count |
+| POST | `/api/zones` | ✅ | Create a public or private zone → `201` with its NS and SOA records; `400` invalid name or VPC; `409` duplicate name |
+| GET | `/api/zones/{id}` | ✅ | One zone with its name servers and records; `404` if missing or another user's |
+| PATCH | `/api/zones/{id}` | ✅ | Change the description and (private zones) the VPCs |
+| DELETE | `/api/zones/{id}` | ✅ | `204`; `409` while the zone has records other than NS and SOA |
+| GET | `/api/vpcs` | ✅ | The mocked Regions and VPCs offered for private zones |
 | GET/POST/PATCH/DELETE | `/api/zones/{id}/records[/{rid}]` | Phase 4 | DNS records CRUD |
 
 Full reference: [docs/API.md](docs/API.md) · live OpenAPI docs at `/docs` on the backend.

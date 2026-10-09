@@ -1,0 +1,70 @@
+/*
+ * Layout of the records filter, copied from the console's own stylesheet: the search box
+ * (with its tokens underneath) and the three dropdowns sit side by side, and wrap onto
+ * separate lines when space runs out.
+ *
+ * The console switches at viewport widths of 1508px and 1152px. Here the split panel also
+ * takes space, so the switches use the filter's own width instead (container queries).
+ * 1110px is what the filter measures at a 1508px viewport with the navigation open; the
+ * stacking point is 900px (not the console's ~750px) so the search box never gets
+ * narrower than about 450px while the dropdowns sit beside it.
+ */
+.container {
+  container-type: inline-size;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  margin-right: 2rem;
+}
+
+.search {
+  flex: 2 1 0;
+  min-width: 0;
+  margin-right: 1rem;
+  max-width: 728px;
+}
+
+/* The search box fills its section instead of stopping at Cloudscape's default width. */
+.search :global([class^="awsui_search-field"]) {
+  max-width: none !important;
+}
+
+.dropdowns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  row-gap: 0.5rem;
+}
+
+.dropdown {
+  flex-grow: 2;
+  margin-right: 1rem;
+  max-width: 130px;
+}
+
+.matchCount {
+  line-height: 2rem;
+  margin-right: 1rem;
+  white-space: nowrap;
+}
+
+@container (max-width: 1110px) {
+  .filters {
+    margin-right: 0;
+  }
+}
+
+@container (max-width: 900px) {
+  .search {
+    flex-basis: 100%;
+    margin-bottom: 1rem;
+    margin-right: 0;
+    max-width: none;
+  }
+
+  .dropdown {
+    max-width: none;
+  }
+}

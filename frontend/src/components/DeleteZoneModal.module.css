@@ -1,0 +1,11 @@
+/* The line between the explanation and the confirmation field. Cloudscape has no divider
+   component; this is its divider colour token (with its light-mode value as fallback). */
+.divider {
+  border-top: 1px solid var(--color-border-divider-default-diwd4w, #c6c6cd);
+}
+
+/* The bulleted step inside the warning. */
+.steps {
+  margin: 0;
+  padding-inline-start: 20px;
+}
