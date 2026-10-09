@@ -3,15 +3,10 @@
 import { useCollection } from "@cloudscape-design/collection-hooks";
 import Box from "@cloudscape-design/components/box";
 import Button from "@cloudscape-design/components/button";
-import CollectionPreferences, {
-  type CollectionPreferencesProps,
-} from "@cloudscape-design/components/collection-preferences";
-import FormField from "@cloudscape-design/components/form-field";
 import Header from "@cloudscape-design/components/header";
 import Link from "@cloudscape-design/components/link";
 import Pagination from "@cloudscape-design/components/pagination";
 import PropertyFilter, { type PropertyFilterProps } from "@cloudscape-design/components/property-filter";
-import RadioGroup from "@cloudscape-design/components/radio-group";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import SplitPanel from "@cloudscape-design/components/split-panel";
 import StatusIndicator from "@cloudscape-design/components/status-indicator";
@@ -20,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 
 import DeleteZoneModal from "@/components/DeleteZoneModal";
+import TablePreferences, { SearchModeDescription, type TablePreferencesValue } from "@/components/TablePreferences";
 import ZoneDetailsFields from "@/components/ZoneDetailsFields";
 import { useConsolePage } from "@/lib/console-page";
 import { toZoneRow, useZone, useZones, type ZoneRow } from "@/lib/zones";
@@ -48,49 +44,18 @@ const FILTERING_PROPERTIES: PropertyFilterProps.FilteringProperty[] = [
 
 // --- Preferences dialog, as in the console (25_Hosted_zones_preferences.png) ---
 
-const PAGE_SIZE_OPTIONS = [10, 30, 50, 100].map((value) => ({ value, label: `${value} items` }));
-
 // "Select visible columns": every column can be toggled; Accelerated recovery starts hidden.
-const VISIBLE_COLUMN_OPTIONS: CollectionPreferencesProps.VisibleContentPreference = {
-  title: "Select visible columns",
-  options: [
-    {
-      label: "Properties",
-      options: [
-        { id: "name", label: "Hosted zone name" },
-        { id: "type", label: "Type" },
-        { id: "acceleratedRecovery", label: "Accelerated recovery" },
-        { id: "createdBy", label: "Created by" },
-        { id: "recordCount", label: "Record count" },
-        { id: "description", label: "Description" },
-        { id: "id", label: "Hosted zone ID" },
-      ],
-    },
-  ],
-};
-
-// The console's search modes. The clone filters in the browser, where every mode
-// behaves the same, so the choice only changes the sentence under the title.
-type SearchMode = "automatic" | "full" | "fast";
-const SEARCH_MODES: { value: SearchMode; label: string; description: string }[] = [
-  {
-    value: "automatic",
-    label: "Automatic",
-    description: "The service chooses a filter mode based on the total number of items.",
-  },
-  {
-    value: "full",
-    label: "Full",
-    description: "All search filters are available, but search performance might be slower.",
-  },
-  {
-    value: "fast",
-    label: "Fast",
-    description: "Some advanced searches may not be available, but search performance will be faster.",
-  },
+const COLUMN_OPTIONS = [
+  { id: "name", label: "Hosted zone name" },
+  { id: "type", label: "Type" },
+  { id: "acceleratedRecovery", label: "Accelerated recovery" },
+  { id: "createdBy", label: "Created by" },
+  { id: "recordCount", label: "Record count" },
+  { id: "description", label: "Description" },
+  { id: "id", label: "Hosted zone ID" },
 ];
 
-const DEFAULT_PREFERENCES: CollectionPreferencesProps.Preferences<SearchMode> = {
+const DEFAULT_PREFERENCES: TablePreferencesValue = {
   pageSize: 100,
   wrapLines: false,
   visibleContent: ["name", "type", "createdBy", "recordCount", "description", "id"],
@@ -120,7 +85,6 @@ export default function HostedZonesPage() {
 
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const searchMode = SEARCH_MODES.find((mode) => mode.value === preferences.custom) ?? SEARCH_MODES[0];
 
   const goTo = (href: string) => (event: CustomEvent) => {
     event.preventDefault();
@@ -193,13 +157,8 @@ export default function HostedZonesPage() {
     },
   });
 
-  // "To change modes go to settings." opens the same Preferences dialog as the gear.
-  // CollectionPreferences can't be opened from code, so the link clicks its button.
+  // Lets "To change modes go to settings." find the table's Preferences button.
   const tableWrapper = useRef<HTMLDivElement>(null);
-  const openPreferences = (event: CustomEvent) => {
-    event.preventDefault();
-    tableWrapper.current?.querySelector<HTMLButtonElement>('button[aria-label="Preferences"]')?.click();
-  };
 
   const hasFilter = (propertyFilterProps.query.tokens?.length ?? 0) > 0;
 
@@ -257,16 +216,7 @@ export default function HostedZonesPage() {
           <Header
             variant="awsui-h1-sticky"
             counter={selected ? `(1/${rows.length})` : `(${rows.length})`}
-            description={
-              <>
-                {searchMode.value === "automatic"
-                  ? "Automatic mode is the current search behavior optimized for best filter results."
-                  : `${searchMode.label} mode is the current search behavior.`}{" "}
-                <Link href="#" variant="primary" fontSize="inherit" onFollow={openPreferences}>
-                  To change modes go to settings.
-                </Link>
-              </>
-            }
+            description={<SearchModeDescription mode={preferences.custom} tableRef={tableWrapper} />}
             actions={
               <SpaceBetween direction="horizontal" size="xs">
                 <Button
@@ -314,24 +264,11 @@ export default function HostedZonesPage() {
         }
         pagination={<Pagination {...paginationProps} />}
         preferences={
-          <CollectionPreferences
-            title="Preferences"
-            confirmLabel="Confirm"
-            cancelLabel="Cancel"
+          <TablePreferences
             preferences={preferences}
-            onConfirm={({ detail }) => setPreferences({ ...DEFAULT_PREFERENCES, ...detail })}
-            pageSizePreference={{ title: "Page size", options: PAGE_SIZE_OPTIONS }}
-            wrapLinesPreference={{ label: "Wrap lines", description: "Check to see all the text and wrap the lines." }}
-            visibleContentPreference={VISIBLE_COLUMN_OPTIONS}
-            customPreference={(mode: SearchMode, setMode) => (
-              <FormField label="Search mode">
-                <RadioGroup
-                  value={mode}
-                  onChange={({ detail }) => setMode(detail.value as SearchMode)}
-                  items={SEARCH_MODES}
-                />
-              </FormField>
-            )}
+            defaults={DEFAULT_PREFERENCES}
+            columns={COLUMN_OPTIONS}
+            onConfirm={setPreferences}
           />
         }
         empty={emptyState}

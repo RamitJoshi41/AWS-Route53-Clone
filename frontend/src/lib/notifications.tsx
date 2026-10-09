@@ -85,20 +85,27 @@ export function useNotificationMessages(): FlashbarProps.MessageDefinition[] {
   return useContext(NotificationsListContext);
 }
 
+// The console's own line for errors it recognizes, by the API's error code;
+// every other error gets "Please try again later."
+const ERROR_LINES: Record<string, string> = {
+  RecordSetAlreadyExists: "A record with the specified name already exists.",
+};
+
 /**
  * The console's red error banner for a failed request:
  *   Error occurred
- *   Please try again later.
+ *   Please try again later.        (or the line for a recognized error)
  *   (<the API's message>)
  */
 export function apiErrorNotification(error: unknown): Notification {
   const message = error instanceof ApiError || error instanceof Error ? error.message : String(error);
+  const code = error instanceof ApiError ? error.code : undefined;
   return {
     type: "error",
     header: "Error occurred",
     content: (
       <>
-        Please try again later.
+        {(code && ERROR_LINES[code]) ?? "Please try again later."}
         <Box variant="code" display="block" color="inherit">
           ({message})
         </Box>

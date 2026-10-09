@@ -4,16 +4,17 @@ import { useCollection } from "@cloudscape-design/collection-hooks";
 import Box from "@cloudscape-design/components/box";
 import Button from "@cloudscape-design/components/button";
 import Header from "@cloudscape-design/components/header";
-import Link from "@cloudscape-design/components/link";
 import Pagination from "@cloudscape-design/components/pagination";
 import PropertyFilter, { type PropertyFilterProps } from "@cloudscape-design/components/property-filter";
 import Select, { type SelectProps } from "@cloudscape-design/components/select";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import Table, { type TableProps } from "@cloudscape-design/components/table";
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 
+import TablePreferences, { SearchModeDescription, type TablePreferencesValue } from "@/components/TablePreferences";
 import { InfoLink } from "@/components/ZoneFormParts";
 import type { DnsRecord } from "@/lib/api";
+import { isProtectedRecord } from "@/lib/records";
 import { displayName } from "@/lib/zones";
 
 import styles from "./RecordsTable.module.css";
@@ -116,6 +117,16 @@ const MATCHING_PROPERTIES: PropertyFilterProps.FilteringProperty[] = FILTERING_P
   DROPDOWN_FILTERS.some(({ key }) => key === property.key) ? { ...property, operators: [":", "="] } : property,
 );
 
+// The Preferences dialog (screenshot 28): every column can be hidden; all start visible,
+// 100 rows per page.
+const COLUMN_OPTIONS = PROPERTY_LABELS.map(([id, label]) => ({ id, label }));
+const DEFAULT_PREFERENCES: TablePreferencesValue = {
+  pageSize: 100,
+  wrapLines: false,
+  visibleContent: COLUMN_OPTIONS.map(({ id }) => id),
+  custom: "automatic",
+};
+
 // Starting widths measured from the console (screenshot 01); every column can be resized.
 const COLUMNS: TableProps.ColumnDefinition<RecordRow>[] = [
   { id: "name", header: "Record name", cell: (r) => r.name, sortingField: "name", isRowHeader: true, width: 300 },
@@ -151,22 +162,37 @@ const COLUMNS: TableProps.ColumnDefinition<RecordRow>[] = [
 ];
 
 type Props = {
+  /** The zone's normalized name ("example.com."): its SOA and NS records named like it can't be deleted. */
+  zoneName: string;
   records: DnsRecord[];
   loading: boolean;
   onRefresh: () => void;
   selectedIds: number[];
   onSelectionChange: (ids: number[]) => void;
+  /** "Delete record" for the selection; the confirmation dialog arrives with record deletion. */
+  onDeleteSelected?: () => void;
 };
 
-/** The "Records" tab of a hosted zone. Read-only for now: record actions arrive with record management. */
-export default function RecordsTable({ records, loading, onRefresh, selectedIds, onSelectionChange }: Props) {
+/** The "Records" tab of a hosted zone. */
+export default function RecordsTable({
+  zoneName,
+  records,
+  loading,
+  onRefresh,
+  selectedIds,
+  onSelectionChange,
+  onDeleteSelected,
+}: Props) {
   const rows = useMemo(() => records.map(toRecordRow), [records]);
+  const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
+  // Lets "To change modes go to settings." find the table's Preferences button.
+  const tableWrapper = useRef<HTMLDivElement>(null);
 
   const { items, actions, filteredItemsCount, collectionProps, propertyFilterProps, paginationProps } =
     useCollection(rows, {
       propertyFiltering: { filteringProperties: MATCHING_PROPERTIES },
       sorting: {},
-      pagination: { pageSize: 100 },
+      pagination: { pageSize: preferences.pageSize },
     });
 
   const query = propertyFilterProps.query;
@@ -182,100 +208,118 @@ export default function RecordsTable({ records, loading, onRefresh, selectedIds,
   };
 
   const selectedItems = rows.filter((row) => selectedIds.includes(row.id));
+  // Selecting the SOA record or the apex NS record disables "Delete record" and swaps the
+  // description for the console's explanation (screenshots 06, 07).
+  const selectsProtected = records.some(
+    (record) => selectedIds.includes(record.id) && isProtectedRecord(record, zoneName),
+  );
   const countText = tokens.length > 0 ? `${filteredItemsCount} matches` : undefined;
   const clearFilters = () => actions.setPropertyFiltering({ tokens: [], operation: "and" });
 
   return (
-    <Table
-      {...collectionProps}
-      items={loading ? [] : items}
-      columnDefinitions={COLUMNS}
-      trackBy="id"
-      selectionType="multi"
-      selectedItems={selectedItems}
-      onSelectionChange={({ detail }) => onSelectionChange(detail.selectedItems.map((row) => row.id))}
-      loading={loading}
-      loadingText="Loading records"
-      skeleton={{ totalRows: 3 }}
-      resizableColumns
-      ariaLabels={{
-        selectionGroupLabel: "Record selection",
-        itemSelectionLabel: (_, row) => `${row.name} ${row.type}`,
-        allItemsSelectionLabel: () => "Select all records",
-      }}
-      header={
-        <Header
-          counter={selectedItems.length ? `(${selectedItems.length}/${rows.length})` : `(${rows.length})`}
-          info={<InfoLink />}
-          description={
-            <>
-              Automatic mode is the current search behavior optimized for best filter results.{" "}
-              {/* Opens the records table preferences once record management is built. */}
-              <Link href="#" variant="primary" fontSize="inherit" onFollow={(event) => event.preventDefault()}>
-                To change modes go to settings.
-              </Link>
-            </>
-          }
-          actions={
-            <SpaceBetween direction="horizontal" size="xs">
-              <Button iconName="refresh" ariaLabel="Refresh records" loading={loading} onClick={onRefresh} />
-              <Button disabled>Delete record</Button>
-              <Button>Import zone file</Button>
-              <Button variant="primary">Create record</Button>
-            </SpaceBetween>
-          }
-        >
-          Records
-        </Header>
-      }
-      filter={
-        <div className={styles.container}>
-          <div className={styles.filters}>
-            <div className={styles.search}>
-              <PropertyFilter
-                {...propertyFilterProps}
-                filteringProperties={FILTERING_PROPERTIES}
-                i18nStrings={{ enteredTextLabel: (text) => `Use: ${text}` }}
-                filteringPlaceholder="Filter records by property or value"
-                filteringAriaLabel="Filter records"
-                countText={countText}
-                expandToViewport
-              />
-            </div>
-            <div className={styles.dropdowns}>
-              {DROPDOWN_FILTERS.map(({ key, placeholder, options, searchable }) => {
-                const value = equalsToken(key)?.value;
-                return (
-                  <div key={key} className={styles.dropdown}>
-                    <Select
-                      placeholder={placeholder}
-                      ariaLabel={`Filter by ${placeholder.toLowerCase()}`}
-                      options={options}
-                      selectedOption={options.find((option) => option.value === value) ?? null}
-                      onChange={({ detail }) => chooseDropdownValue(key, detail.selectedOption.value ?? "")}
-                      filteringType={searchable ? "auto" : "none"}
-                      expandToViewport
-                    />
-                  </div>
-                );
-              })}
-              {countText && <span className={styles.matchCount}>{countText}</span>}
+    <div ref={tableWrapper}>
+      <Table
+        {...collectionProps}
+        items={loading ? [] : items}
+        columnDefinitions={COLUMNS}
+        trackBy="id"
+        selectionType="multi"
+        selectedItems={selectedItems}
+        onSelectionChange={({ detail }) => onSelectionChange(detail.selectedItems.map((row) => row.id))}
+        loading={loading}
+        loadingText="Loading records"
+        skeleton={{ totalRows: 3 }}
+        resizableColumns
+        wrapLines={preferences.wrapLines}
+        visibleColumns={preferences.visibleContent}
+        ariaLabels={{
+          selectionGroupLabel: "Record selection",
+          itemSelectionLabel: (_, row) => `${row.name} ${row.type}`,
+          allItemsSelectionLabel: () => "Select all records",
+        }}
+        header={
+          <Header
+            counter={selectedItems.length ? `(${selectedItems.length}/${rows.length})` : `(${rows.length})`}
+            info={<InfoLink />}
+            description={
+              selectsProtected ? (
+                `The following table lists the existing records in ${displayName(zoneName)}. ` +
+                `You can't delete the SOA record or the NS record named ${displayName(zoneName)}.`
+              ) : (
+                <SearchModeDescription mode={preferences.custom} tableRef={tableWrapper} />
+              )
+            }
+            actions={
+              <SpaceBetween direction="horizontal" size="xs">
+                <Button iconName="refresh" ariaLabel="Refresh records" loading={loading} onClick={onRefresh} />
+                <Button disabled={selectedItems.length === 0 || selectsProtected} onClick={onDeleteSelected}>
+                  Delete record
+                </Button>
+                <Button>Import zone file</Button>
+                <Button variant="primary">Create record</Button>
+              </SpaceBetween>
+            }
+          >
+            Records
+          </Header>
+        }
+        filter={
+          <div className={styles.container}>
+            <div className={styles.filters}>
+              <div className={styles.search}>
+                <PropertyFilter
+                  {...propertyFilterProps}
+                  filteringProperties={FILTERING_PROPERTIES}
+                  i18nStrings={{ enteredTextLabel: (text) => `Use: ${text}` }}
+                  filteringPlaceholder="Filter records by property or value"
+                  filteringAriaLabel="Filter records"
+                  countText={countText}
+                  expandToViewport
+                />
+              </div>
+              <div className={styles.dropdowns}>
+                {DROPDOWN_FILTERS.map(({ key, placeholder, options, searchable }) => {
+                  const value = equalsToken(key)?.value;
+                  return (
+                    <div key={key} className={styles.dropdown}>
+                      <Select
+                        placeholder={placeholder}
+                        ariaLabel={`Filter by ${placeholder.toLowerCase()}`}
+                        options={options}
+                        selectedOption={options.find((option) => option.value === value) ?? null}
+                        onChange={({ detail }) => chooseDropdownValue(key, detail.selectedOption.value ?? "")}
+                        filteringType={searchable ? "auto" : "none"}
+                        expandToViewport
+                      />
+                    </div>
+                  );
+                })}
+                {countText && <span className={styles.matchCount}>{countText}</span>}
+              </div>
             </div>
           </div>
-        </div>
-      }
-      pagination={<Pagination {...paginationProps} />}
-      empty={
-        <Box textAlign="center" color="inherit">
-          <Box variant="strong" textAlign="center" color="inherit">
-            No matches
+        }
+        pagination={<Pagination {...paginationProps} />}
+        preferences={
+          <TablePreferences
+            preferences={preferences}
+            defaults={DEFAULT_PREFERENCES}
+            columns={COLUMN_OPTIONS}
+            onConfirm={setPreferences}
+          />
+        }
+        empty={
+          <Box textAlign="center" color="inherit">
+            <Box variant="strong" textAlign="center" color="inherit">
+              No matches
+            </Box>
+            <Box variant="p" padding={{ bottom: "s" }} color="inherit">
+              No results match your query.
+            </Box>
+            <Button onClick={clearFilters}>Clear filters</Button>
           </Box>
-          <Box variant="p" padding={{ bottom: "s" }} color="inherit">
-            No results match your query.
-          </Box>
-          <Button onClick={clearFilters}>Clear filters</Button>
-        </Box>
-      }
-    />
+        }
+      />
+    </div>
   );
 }

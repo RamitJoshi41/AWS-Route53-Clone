@@ -11,6 +11,14 @@ export class ApiError extends Error {
     super(message);
     this.name = "ApiError";
   }
+
+  /** The machine-readable `code` a few errors carry next to `detail` (backend/errors.py). */
+  get code(): string | undefined {
+    const body = this.body;
+    return body && typeof body === "object" && "code" in body && typeof body.code === "string"
+      ? body.code
+      : undefined;
+  }
 }
 
 async function parseBody(response: Response): Promise<unknown> {
@@ -159,4 +167,42 @@ export function deleteZone(id: string): Promise<null> {
 
 export function getVpcCatalog(signal?: AbortSignal): Promise<VpcCatalog> {
   return apiFetch<VpcCatalog>("/vpcs", { signal });
+}
+
+// --- DNS records (backend/routers/records.py) ---
+// Record names are fully qualified ("www.example.com."). Creating and deleting
+// several records is all or nothing, as in Route 53.
+
+/** The types a record can be created with (SOA exists only as the zone's own record). */
+export type RecordType = "A" | "AAAA" | "CNAME" | "MX" | "TXT" | "PTR" | "SRV" | "CAA" | "NS";
+
+export type CreateRecordInput = {
+  name: string;
+  type: RecordType;
+  ttl: number;
+  values: string[];
+};
+
+/** PATCH body: any of the edit panel's fields; omitted ones stay as they are. */
+export type UpdateRecordInput = Partial<CreateRecordInput>;
+
+const recordsPath = (zoneId: string) => `/zones/${encodeURIComponent(zoneId)}/records`;
+
+export function createRecords(zoneId: string, records: CreateRecordInput[]): Promise<DnsRecord[]> {
+  return apiFetch<DnsRecord[]>(recordsPath(zoneId), { method: "POST", body: JSON.stringify({ records }) });
+}
+
+export function updateRecord(zoneId: string, recordId: number, input: UpdateRecordInput): Promise<DnsRecord> {
+  return apiFetch<DnsRecord>(`${recordsPath(zoneId)}/${recordId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+/** 204; 400 for the SOA record or the apex NS record, in which case nothing is deleted. */
+export function deleteRecords(zoneId: string, recordIds: number[]): Promise<null> {
+  return apiFetch<null>(`${recordsPath(zoneId)}/batch-delete`, {
+    method: "POST",
+    body: JSON.stringify({ ids: recordIds }),
+  });
 }

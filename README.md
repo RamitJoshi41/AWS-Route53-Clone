@@ -8,7 +8,7 @@ A functional clone of the AWS Route 53 web console: hosted zones and DNS records
 | Backend | FastAPI, SQLAlchemy 2, Alembic migrations, bcrypt |
 | Database | SQLite (`backend/route53.db`) |
 
-> **Status:** Phase 3 (hosted zones) complete: list, search, create (public and private), view, edit and delete hosted zones in a Route 53-style console. Phase 4 (DNS records) in progress: the records API is done (create, edit and delete records, with Route 53's validation rules); its console pages come next. Feature progress is tracked in [docs/PLAN.md](docs/PLAN.md).
+> **Status:** Phase 3 (hosted zones) complete: list, search, create (public and private), view, edit and delete hosted zones in a Route 53-style console. Phase 4 (DNS records) in progress: the records API (create, edit and delete records, with Route 53's validation rules) and the record details panel are done; the create, edit and delete screens come next. Feature progress is tracked in [docs/PLAN.md](docs/PLAN.md).
 
 ---
 
@@ -79,7 +79,7 @@ See `backend/.env.example` and `frontend/.env.example`.
   - Every zone gets its NS and SOA records, with name servers numbered the way Route 53 numbers them.
 - **Zone details:**
   - Public and private variants.
-  - Records table with its search box and Type / Routing policy / Alias filters.
+  - Records table with its search box and Type / Routing policy / Alias filters, preferences (page size, wrap lines, visible columns), and the selected record's details in the split panel.
   - The Accelerated recovery, DNSSEC signing and Tags tabs show their empty states.
 - **Edit:** the description, and for private zones the associated VPCs.
 - **Delete:** a confirmation dialog where you type `delete`. As in Route 53, a zone that still has records other than NS and SOA can't be deleted. The dialog warns about this, and the API refuses with Route 53's message.

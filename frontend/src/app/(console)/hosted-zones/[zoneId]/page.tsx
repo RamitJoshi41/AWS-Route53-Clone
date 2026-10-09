@@ -5,13 +5,13 @@ import Button from "@cloudscape-design/components/button";
 import ExpandableSection from "@cloudscape-design/components/expandable-section";
 import Header from "@cloudscape-design/components/header";
 import SpaceBetween from "@cloudscape-design/components/space-between";
-import SplitPanel from "@cloudscape-design/components/split-panel";
 import StatusIndicator from "@cloudscape-design/components/status-indicator";
 import Tabs, { type TabsProps } from "@cloudscape-design/components/tabs";
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 
 import DeleteZoneModal from "@/components/DeleteZoneModal";
+import RecordDetailsPanel from "@/components/RecordDetailsPanel";
 import RecordsTable from "@/components/RecordsTable";
 import { AcceleratedRecoveryTab, DnssecSigningTab, ZoneTagsTab } from "@/components/ZoneFeatureTabs";
 import ZoneDetailsFields from "@/components/ZoneDetailsFields";
@@ -30,7 +30,8 @@ export default function HostedZoneDetailsPage({ params }: PageProps<"/hosted-zon
   const [selectedRecordIds, setSelectedRecordIds] = useState<number[]>([]);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const selectedCount = selectedRecordIds.length;
+  // Only records still in the zone count: a refresh may have dropped a deleted one.
+  const selectedRecords = loadedZone?.records.filter((record) => selectedRecordIds.includes(record.id)) ?? [];
   useConsolePage({
     breadcrumbs: [
       { text: "Hosted zones", href: LIST_HREF },
@@ -40,12 +41,7 @@ export default function HostedZoneDetailsPage({ params }: PageProps<"/hosted-zon
       ? {
           id: "hosted-zone-details",
           defaultSize: 643,
-          content: (
-            // Record details for a selected record arrive with record management.
-            <SplitPanel header={`${selectedCount} records selected`}>
-              {selectedCount === 0 ? "Select a record to see its details" : null}
-            </SplitPanel>
-          ),
+          content: <RecordDetailsPanel selected={selectedRecords} />,
         }
       : undefined,
   });
@@ -70,6 +66,7 @@ export default function HostedZoneDetailsPage({ params }: PageProps<"/hosted-zon
       label: `Records (${zone.records.length})`,
       content: (
         <RecordsTable
+          zoneName={zone.name}
           records={zone.records}
           loading={zoneQuery.isFetching}
           onRefresh={() => zoneQuery.refetch()}
