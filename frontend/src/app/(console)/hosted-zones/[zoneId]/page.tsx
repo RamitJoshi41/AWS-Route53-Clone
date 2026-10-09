@@ -16,7 +16,7 @@ import RecordDetailsPanel from "@/components/RecordDetailsPanel";
 import RecordsTable from "@/components/RecordsTable";
 import { AcceleratedRecoveryTab, DnssecSigningTab, ZoneTagsTab } from "@/components/ZoneFeatureTabs";
 import ZoneDetailsFields from "@/components/ZoneDetailsFields";
-import { InfoLink } from "@/components/ZoneFormParts";
+import InfoLink from "@/components/InfoLink";
 import ZoneLoadError from "@/components/ZoneLoadError";
 import { useConsolePage } from "@/lib/console-page";
 import { displayName, useZone } from "@/lib/zones";
@@ -35,6 +35,7 @@ export default function HostedZoneDetailsPage({ params }: PageProps<"/hosted-zon
   // Only records still in the zone count: a refresh may have dropped a deleted one.
   const selectedRecords = loadedZone?.records.filter((record) => selectedRecordIds.includes(record.id)) ?? [];
   useConsolePage({
+    helpTopic: "hostedZoneDetails",
     breadcrumbs: [
       { text: "Hosted zones", href: LIST_HREF },
       { text: loadedZone ? displayName(loadedZone.name) : zoneId, href: `${LIST_HREF}/${zoneId}` },
@@ -100,7 +101,7 @@ export default function HostedZoneDetailsPage({ params }: PageProps<"/hosted-zon
     <SpaceBetween size="l">
       <Header
         variant="h1"
-        info={<InfoLink />}
+        info={<InfoLink topic="hostedZoneDetails" />}
         actions={
           <SpaceBetween direction="horizontal" size="xs">
             <Button onClick={() => setDeleteOpen(true)}>Delete zone</Button>

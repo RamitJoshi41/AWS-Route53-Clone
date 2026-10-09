@@ -12,7 +12,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import VpcAssociations, { EMPTY_VPC_ROW, vpcRowErrors, type VpcRow } from "@/components/VpcAssociations";
-import { DescriptionField, InfoLink, TagsSection, descriptionError } from "@/components/ZoneFormParts";
+import InfoLink from "@/components/InfoLink";
+import { DescriptionField, TagsSection, descriptionError } from "@/components/ZoneFormParts";
 import type { ZoneType } from "@/lib/api";
 import { useConsolePage } from "@/lib/console-page";
 import { apiErrorNotification, useNotifications } from "@/lib/notifications";
@@ -38,6 +39,7 @@ export default function CreateHostedZonePage() {
   const [errorNotificationId, setErrorNotificationId] = useState<string | null>(null);
 
   useConsolePage({
+    helpTopic: "createHostedZone",
     breadcrumbs: [
       { text: "Hosted zones", href: LIST_HREF },
       { text: "Create hosted zone", href: "/hosted-zones/create" },
@@ -107,7 +109,7 @@ export default function CreateHostedZonePage() {
     >
       <Form
         header={
-          <Header variant="h1" info={<InfoLink />}>
+          <Header variant="h1" info={<InfoLink topic="createHostedZone" />}>
             Create hosted zone
           </Header>
         }
@@ -136,7 +138,7 @@ export default function CreateHostedZonePage() {
             <SpaceBetween size="l">
               <FormField
                 label="Domain name"
-                info={<InfoLink />}
+                info={<InfoLink topic="domainName" />}
                 description="This is the name of the domain that you want to route traffic for."
                 constraintText={VALID_CHARACTERS}
                 errorText={submitted ? nameError : undefined}
@@ -157,7 +159,7 @@ export default function CreateHostedZonePage() {
 
               <FormField
                 label="Type"
-                info={<InfoLink />}
+                info={<InfoLink topic="zoneType" />}
                 description="The type indicates whether you want to route traffic on the internet or in an Amazon VPC."
               >
                 <Tiles

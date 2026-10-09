@@ -1,0 +1,8 @@
+/*
+ * The console's help texts leave a blank line between list items (help_RoutingPolicy,
+ * help_Value). Cloudscape's HelpPanel sets 4px through an ID-level selector
+ * (:not(#\9)), which only !important can override.
+ */
+.content li + li {
+  margin-top: 16px !important;
+}

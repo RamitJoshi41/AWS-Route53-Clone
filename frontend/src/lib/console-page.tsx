@@ -16,6 +16,8 @@ import {
   type SetStateAction,
 } from "react";
 
+import type { HelpTopic } from "@/lib/helpTopics";
+
 export type ConsolePageConfig = {
   /** Without the leading "Route 53" crumb, which the shell adds. */
   breadcrumbs: BreadcrumbGroupProps.Item[];
@@ -25,6 +27,8 @@ export type ConsolePageConfig = {
   splitPanel?: ConsoleSplitPanel;
   /** Caps the content's width (centred), for pages the console shows as a narrower column. */
   maxContentWidth?: number;
+  /** What the help panel shows until an Info link picks a topic. Without one, there's no help panel. */
+  helpTopic?: HelpTopic;
 };
 
 export type ConsoleSplitPanel = {
@@ -57,13 +61,13 @@ export function useConsolePage(config: ConsolePageConfig): void {
   const setPage = useContext(SetPageContext);
   if (!setPage) throw new Error("useConsolePage must be used inside <ConsolePageProvider>");
 
-  const { breadcrumbs, contentType, splitPanel, maxContentWidth } = config;
+  const { breadcrumbs, contentType, splitPanel, maxContentWidth, helpTopic } = config;
   // Breadcrumbs arrive as a new array on every render; compare them by content.
   const breadcrumbsKey = JSON.stringify(breadcrumbs);
 
   useEffect(() => {
-    setPage({ breadcrumbs: JSON.parse(breadcrumbsKey), contentType, splitPanel, maxContentWidth });
-  }, [setPage, breadcrumbsKey, contentType, splitPanel, maxContentWidth]);
+    setPage({ breadcrumbs: JSON.parse(breadcrumbsKey), contentType, splitPanel, maxContentWidth, helpTopic });
+  }, [setPage, breadcrumbsKey, contentType, splitPanel, maxContentWidth, helpTopic]);
 
   // Leaving the page clears its settings, so nothing leaks into the next page.
   useEffect(() => () => setPage(EMPTY_PAGE), [setPage]);

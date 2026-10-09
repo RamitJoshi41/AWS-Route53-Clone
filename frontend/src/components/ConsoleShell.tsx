@@ -1,18 +1,20 @@
 "use client";
 
 import type { AppLayoutProps } from "@cloudscape-design/components/app-layout";
-import AppLayoutToolbar from "@cloudscape-design/components/app-layout-toolbar";
+import AppLayoutToolbar, { type AppLayoutToolbarProps } from "@cloudscape-design/components/app-layout-toolbar";
 import Box from "@cloudscape-design/components/box";
 import BreadcrumbGroup from "@cloudscape-design/components/breadcrumb-group";
 import Flashbar from "@cloudscape-design/components/flashbar";
 import Popover from "@cloudscape-design/components/popover";
 import SideNavigation, { type SideNavigationProps } from "@cloudscape-design/components/side-navigation";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import ConsoleFooter from "@/components/ConsoleFooter";
 import ConsoleTopNav from "@/components/ConsoleTopNav";
+import HelpTopicPanel from "@/components/HelpTopicPanel";
 import { useCurrentConsolePage } from "@/lib/console-page";
+import { useHelp } from "@/lib/help";
 import { NAVIGATION, type NavLink } from "@/lib/navigation";
 import { useNotificationMessages } from "@/lib/notifications";
 
@@ -63,6 +65,18 @@ export default function ConsoleShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const page = useCurrentConsolePage();
   const notifications = useNotificationMessages();
+  const help = useHelp();
+  const helpTopic = help.topic ?? page.helpTopic;
+  const appLayoutRef = useRef<AppLayoutToolbarProps.Ref>(null);
+
+  // After an Info link opened the panel, move keyboard focus into it (Cloudscape's
+  // recommendation), so screen-reader and keyboard users land on the new content.
+  useEffect(() => {
+    if (help.focusRequest === 0) return;
+    // One frame later: the panel's new content has rendered by then.
+    const frame = requestAnimationFrame(() => appLayoutRef.current?.focusToolsClose());
+    return () => cancelAnimationFrame(frame);
+  }, [help.focusRequest]);
 
   // The nav stays as the user left it on normal pages; form pages (create/edit)
   // always open with it closed, as in the console.
@@ -109,6 +123,7 @@ export default function ConsoleShell({ children }: { children: ReactNode }) {
         <ConsoleTopNav />
       </div>
       <AppLayoutToolbar
+        ref={appLayoutRef}
         headerSelector={`#${HEADER_ID}`}
         footerSelector={`#${FOOTER_ID}`}
         ariaLabels={{
@@ -116,6 +131,9 @@ export default function ConsoleShell({ children }: { children: ReactNode }) {
           navigationToggle: "Open side navigation",
           navigationClose: "Close side navigation",
           notifications: "Notifications",
+          tools: "Help panel",
+          toolsToggle: "Open help panel",
+          toolsClose: "Close help panel",
         }}
         contentType={page.contentType ?? "default"}
         maxContentWidth={page.maxContentWidth}
@@ -164,8 +182,10 @@ export default function ConsoleShell({ children }: { children: ReactNode }) {
         }}
         splitPanelPreferences={splitPanelPreferences}
         onSplitPanelPreferencesChange={({ detail }) => setSplitPanelPreferences(detail)}
-        // The help panel ("Info" links) arrives with the UI polish phase.
-        toolsHide
+        tools={helpTopic && <HelpTopicPanel topic={helpTopic} />}
+        toolsHide={!helpTopic}
+        toolsOpen={help.open && !!helpTopic}
+        onToolsChange={({ detail }) => help.setOpen(detail.open)}
         content={children}
       />
       <ConsoleFooter id={FOOTER_ID} />

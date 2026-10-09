@@ -15,7 +15,7 @@ import Table from "@cloudscape-design/components/table";
 import TextFilter from "@cloudscape-design/components/text-filter";
 import { useState } from "react";
 
-import { InfoLink } from "@/components/ZoneFormParts";
+import InfoLink from "@/components/InfoLink";
 
 function EmptyTableText({ children }: { children: string }) {
   return (
@@ -31,7 +31,7 @@ export function AcceleratedRecoveryTab() {
       header={
         <Header
           variant="h2"
-          info={<InfoLink />}
+          info={<InfoLink topic="acceleratedRecovery" />}
           description="Enable the accelerated recovery option to ensure that you can continue to make changes to your public DNS records after an impairment to US East (N. Virginia)."
           actions={<Button>Enable</Button>}
         >
@@ -51,7 +51,7 @@ export function DnssecSigningTab() {
     <SpaceBetween size="l">
       <Container
         header={
-          <Header variant="h2" info={<InfoLink />} actions={<Button>Enable DNSSEC signing</Button>}>
+          <Header variant="h2" info={<InfoLink topic="dnssecSigning" />} actions={<Button>Enable DNSSEC signing</Button>}>
             DNSSEC signing
           </Header>
         }
@@ -85,7 +85,7 @@ export function DnssecSigningTab() {
         sortingColumn={{ sortingField: "name" }}
         header={
           <Header
-            info={<InfoLink />}
+            info={<InfoLink topic="dnssecSigning" />}
             actions={
               <SpaceBetween direction="horizontal" size="xs">
                 <Button disabled>View details</Button>

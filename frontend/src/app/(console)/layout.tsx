@@ -1,6 +1,7 @@
 import AuthGuard from "@/components/AuthGuard";
 import ConsoleShell from "@/components/ConsoleShell";
 import { ConsolePageProvider } from "@/lib/console-page";
+import { HelpProvider } from "@/lib/help";
 import { NotificationsProvider } from "@/lib/notifications";
 
 // Shell for every signed-in page. "(console)" is a route group: it shares this layout
@@ -12,7 +13,9 @@ export default function ConsoleLayout({ children }: LayoutProps<"/">) {
     <AuthGuard>
       <NotificationsProvider>
         <ConsolePageProvider>
-          <ConsoleShell>{children}</ConsoleShell>
+          <HelpProvider>
+            <ConsoleShell>{children}</ConsoleShell>
+          </HelpProvider>
         </ConsolePageProvider>
       </NotificationsProvider>
     </AuthGuard>

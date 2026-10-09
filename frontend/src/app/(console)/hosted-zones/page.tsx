@@ -136,6 +136,7 @@ export default function HostedZonesPage() {
   const selectedDetails = useZone(selectedZone?.type === "public" ? selectedZone.id : undefined);
 
   useConsolePage({
+    helpTopic: "hostedZoneDetails",
     breadcrumbs: [{ text: "Hosted zones", href: "/hosted-zones" }],
     contentType: "table",
     splitPanel: {

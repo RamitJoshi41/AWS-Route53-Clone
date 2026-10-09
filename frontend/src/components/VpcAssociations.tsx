@@ -10,7 +10,7 @@ import Select, { type SelectProps } from "@cloudscape-design/components/select";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import { useMemo, useState } from "react";
 
-import { InfoLink } from "@/components/ZoneFormParts";
+import InfoLink from "@/components/InfoLink";
 import type { VpcCatalog } from "@/lib/api";
 
 /** One "Region | VPC ID" row as the user fills it in. */
@@ -58,7 +58,7 @@ export default function VpcAssociations({ rows, onChange, catalog, errors }: Pro
       header={
         <Header
           variant="h2"
-          info={<InfoLink />}
+          info={<InfoLink topic="vpcs" />}
           description="To use this hosted zone to resolve DNS queries for one or more VPCs, choose the VPCs. To associate a VPC with a hosted zone when the VPC was created using a different AWS account, you must use a programmatic method, such as the AWS CLI."
         >
           VPCs to associate with the hosted zone
@@ -84,7 +84,7 @@ export default function VpcAssociations({ rows, onChange, catalog, errors }: Pro
           definition={[
             {
               label: "Region",
-              info: <InfoLink />,
+              info: <InfoLink topic="vpcs" />,
               errorText: (_, index) => errors[index]?.region,
               control: (row, index) => (
                 <Select
@@ -101,7 +101,7 @@ export default function VpcAssociations({ rows, onChange, catalog, errors }: Pro
             },
             {
               label: "VPC ID",
-              info: <InfoLink />,
+              info: <InfoLink topic="vpcs" />,
               errorText: (_, index) => errors[index]?.vpcId,
               control: (row, index) => (
                 // Autosuggest renders a search-style input (magnifier + clear button), as in the console.

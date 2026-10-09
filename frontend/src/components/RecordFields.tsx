@@ -10,7 +10,7 @@ import SpaceBetween from "@cloudscape-design/components/space-between";
 import Textarea from "@cloudscape-design/components/textarea";
 import Toggle from "@cloudscape-design/components/toggle";
 
-import { InfoLink } from "@/components/ZoneFormParts";
+import InfoLink from "@/components/InfoLink";
 import type { CreateRecordInput, DnsRecord, RecordType } from "@/lib/api";
 import {
   ROUTING_POLICY_OPTIONS,
@@ -126,7 +126,7 @@ export default function RecordFields({
         ) : (
           <FormField
             label="Record name"
-            info={<InfoLink />}
+            info={<InfoLink topic="recordName" />}
             constraintText="Keep blank to create a record for the root domain."
             errorText={nameError}
             warningText={nameError ? undefined : nameSpacesWarning(draft.subdomain)}
@@ -149,7 +149,7 @@ export default function RecordFields({
         {fixedNameAndType ? (
           <FixedField label="Record type">{recordTypeLabel(draft.type, privateZone)}</FixedField>
         ) : (
-          <FormField label="Record type" info={<InfoLink />} stretch>
+          <FormField label="Record type" info={<InfoLink topic="recordType" />} stretch>
             <Select
               selectedOption={{ value: draft.type, label: recordTypeLabel(draft.type, privateZone) }}
               onChange={({ detail }) => set({ type: detail.selectedOption.value as RecordType })}
@@ -167,7 +167,7 @@ export default function RecordFields({
 
       <FormField
         label="Value"
-        info={<InfoLink />}
+        info={<InfoLink topic="value" />}
         constraintText={["Enter multiple values on separate lines.", info.format].filter(Boolean).join(" ")}
         stretch
       >
@@ -183,7 +183,7 @@ export default function RecordFields({
       <ColumnLayout columns={2}>
         <FormField
           label="TTL (seconds)"
-          info={<InfoLink />}
+          info={<InfoLink topic="ttl" />}
           constraintText="Recommended values: 60 to 172800 (two days)"
           stretch
         >
@@ -207,7 +207,7 @@ export default function RecordFields({
           </div>
         </FormField>
 
-        <FormField label="Routing policy" info={<InfoLink />} stretch>
+        <FormField label="Routing policy" info={<InfoLink topic="routingPolicy" />} stretch>
           <Select
             selectedOption={ROUTING_POLICY_OPTIONS[0]}
             options={ROUTING_POLICY_OPTIONS}

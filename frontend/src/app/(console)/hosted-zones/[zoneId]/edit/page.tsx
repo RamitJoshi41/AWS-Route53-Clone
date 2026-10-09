@@ -11,7 +11,8 @@ import { use, useState } from "react";
 
 import VpcAssociations, { vpcRowErrors, type VpcRow } from "@/components/VpcAssociations";
 import { Field } from "@/components/ZoneDetailsFields";
-import { DescriptionField, InfoLink, TagsSection, descriptionError } from "@/components/ZoneFormParts";
+import InfoLink from "@/components/InfoLink";
+import { DescriptionField, TagsSection, descriptionError } from "@/components/ZoneFormParts";
 import ZoneLoadError from "@/components/ZoneLoadError";
 import type { HostedZone } from "@/lib/api";
 import { useConsolePage } from "@/lib/console-page";
@@ -31,6 +32,7 @@ export default function EditHostedZonePage({ params, searchParams }: PageProps<"
   const loadedZone = zoneQuery.data;
 
   useConsolePage({
+    helpTopic: "editHostedZone",
     breadcrumbs: [
       { text: "Hosted zones", href: LIST_HREF },
       { text: loadedZone ? displayName(loadedZone.name) : zoneId, href: `${LIST_HREF}/${zoneId}` },
@@ -107,7 +109,7 @@ function EditZoneForm({ zone, returnHref }: { zone: HostedZone; returnHref: stri
     >
       <Form
         header={
-          <Header variant="h1" info={<InfoLink />}>
+          <Header variant="h1" info={<InfoLink topic="editHostedZone" />}>
             Edit {name}
           </Header>
         }

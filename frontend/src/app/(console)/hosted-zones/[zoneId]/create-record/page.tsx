@@ -13,7 +13,7 @@ import { use, useState } from "react";
 
 import RecordFields, { draftNameError, draftToInput, type RecordDraft } from "@/components/RecordFields";
 import RecordsTable from "@/components/RecordsTable";
-import { InfoLink } from "@/components/ZoneFormParts";
+import InfoLink from "@/components/InfoLink";
 import ZoneLoadError from "@/components/ZoneLoadError";
 import { useNotifyChangeSubmitted } from "@/lib/changes";
 import { useConsolePage } from "@/lib/console-page";
@@ -47,6 +47,7 @@ export default function CreateRecordPage({ params }: PageProps<"/hosted-zones/[z
   const [existingSelection, setExistingSelection] = useState<number[]>([]);
 
   useConsolePage({
+    helpTopic: "configureRecords",
     breadcrumbs: [
       { text: "Hosted zones", href: "/hosted-zones" },
       { text: zoneQuery.data ? displayName(zoneQuery.data.name) : zoneId, href: zoneHref },
@@ -109,7 +110,7 @@ export default function CreateRecordPage({ params }: PageProps<"/hosted-zones/[z
       >
         <Form
           header={
-            <Header variant="h1" info={<InfoLink />}>
+            <Header variant="h1" info={<InfoLink topic="configureRecords" />}>
               Create record
             </Header>
           }

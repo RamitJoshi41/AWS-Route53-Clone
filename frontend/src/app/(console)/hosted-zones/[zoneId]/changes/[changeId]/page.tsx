@@ -10,7 +10,7 @@ import StatusIndicator from "@cloudscape-design/components/status-indicator";
 import { use } from "react";
 
 import { Field } from "@/components/ZoneDetailsFields";
-import { InfoLink } from "@/components/ZoneFormParts";
+import InfoLink from "@/components/InfoLink";
 import { useChange } from "@/lib/changes";
 import { useConsolePage } from "@/lib/console-page";
 import { formatConsoleDateTime, parseApiDate } from "@/lib/datetime";
@@ -23,6 +23,7 @@ export default function ChangeInfoPage({ params }: PageProps<"/hosted-zones/[zon
   const zone = useZone(zoneId).data; // only for the breadcrumb's zone name
 
   useConsolePage({
+    helpTopic: "changeInfo",
     breadcrumbs: [
       { text: "Hosted zones", href: "/hosted-zones" },
       { text: zone ? displayName(zone.name) : zoneId, href: `/hosted-zones/${zoneId}` },
@@ -35,7 +36,7 @@ export default function ChangeInfoPage({ params }: PageProps<"/hosted-zones/[zon
   const change = changeQuery.data;
   return (
     <SpaceBetween size="l">
-      <Header variant="h1" info={<InfoLink />}>
+      <Header variant="h1" info={<InfoLink topic="changeInfo" />}>
         {changeId}
       </Header>
 

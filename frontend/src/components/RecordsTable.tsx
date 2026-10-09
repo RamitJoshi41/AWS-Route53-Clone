@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 
 import TablePreferences, { SearchModeDescription, type TablePreferencesValue } from "@/components/TablePreferences";
-import { InfoLink } from "@/components/ZoneFormParts";
+import InfoLink from "@/components/InfoLink";
 import type { DnsRecord } from "@/lib/api";
 import { isProtectedRecord } from "@/lib/records";
 import { displayName } from "@/lib/zones";
@@ -251,7 +251,7 @@ export default function RecordsTable({
         header={
           <Header
             counter={selectedItems.length ? `(${selectedItems.length}/${rows.length})` : `(${rows.length})`}
-            info={<InfoLink />}
+            info={<InfoLink topic="records" />}
             description={
               selectsProtected ? (
                 `The following table lists the existing records in ${displayName(zoneName)}. ` +

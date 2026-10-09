@@ -6,23 +6,15 @@ import AttributeEditor from "@cloudscape-design/components/attribute-editor";
 import Container from "@cloudscape-design/components/container";
 import FormField from "@cloudscape-design/components/form-field";
 import Header from "@cloudscape-design/components/header";
-import Link from "@cloudscape-design/components/link";
 import Textarea from "@cloudscape-design/components/textarea";
+
+import InfoLink from "@/components/InfoLink";
 
 export const DESCRIPTION_MAX_LENGTH = 256;
 
 /** Validation message for the description, as the console words it. */
 export function descriptionError(description: string): string | undefined {
   return description.length > DESCRIPTION_MAX_LENGTH ? "Comment is too long." : undefined;
-}
-
-/** The console's "Info" links. They open the help panel, which comes with the UI polish phase. */
-export function InfoLink() {
-  return (
-    <Link variant="info" onFollow={(event) => event.preventDefault()}>
-      Info
-    </Link>
-  );
 }
 
 type DescriptionFieldProps = {
@@ -39,7 +31,7 @@ export function DescriptionField({ value, onChange, errorText }: DescriptionFiel
           Description - <i>optional</i>
         </>
       }
-      info={<InfoLink />}
+      info={<InfoLink topic="description" />}
       description="This value lets you distinguish hosted zones that have the same name."
       constraintText={`The description can have up to ${DESCRIPTION_MAX_LENGTH} characters. ${value.length}/${DESCRIPTION_MAX_LENGTH}`}
       errorText={errorText}
@@ -65,7 +57,7 @@ export function TagsSection() {
       header={
         <Header
           variant="h2"
-          info={<InfoLink />}
+          info={<InfoLink topic="tags" />}
           description="Apply tags to hosted zones to help organize and identify them."
         >
           Tags

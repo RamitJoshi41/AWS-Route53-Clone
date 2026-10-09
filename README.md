@@ -97,7 +97,7 @@ Browser ──HTTPS──▶ Vercel (Next.js) ──/api/* rewrite──▶ Rend
 
 ## What works today
 
-- **Console layout:** the console's dark top bar (search for pages and hosted zones with **Alt+S**, help links, a mocked account menu) and bottom bar, Route 53's full side navigation (pages that aren't built yet show "Coming soon"), breadcrumbs, a resizable split panel, and stacked notifications. It also works at phone width.
+- **Console layout:** the console's dark top bar (search for pages and hosted zones with **Alt+S**, help links, a mocked account menu) and bottom bar, the help panel behind every **Info** link, Route 53's full side navigation (pages that aren't built yet show "Coming soon"), breadcrumbs, a resizable split panel, and stacked notifications. It also works at phone width.
 - **Hosted zones list:**
   - Select a zone, then use View details / Edit / Delete.
   - Search with Route 53's property filter (e.g. `Type : Private`), sortable and resizable columns, pagination, and a Preferences dialog (page size, wrap lines, visible columns, search mode).
