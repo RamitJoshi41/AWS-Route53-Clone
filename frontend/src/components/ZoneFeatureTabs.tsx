@@ -1,7 +1,8 @@
 "use client";
 
 // Hosted zone tabs for features the clone shows but doesn't implement. Each one
-// renders the console's "not enabled / empty" state; their buttons do nothing yet.
+// renders the console's "not enabled / empty" state; their buttons open the
+// "not available" popover.
 
 import Alert from "@cloudscape-design/components/alert";
 import Box from "@cloudscape-design/components/box";
@@ -15,6 +16,7 @@ import Table from "@cloudscape-design/components/table";
 import TextFilter from "@cloudscape-design/components/text-filter";
 import { useState } from "react";
 
+import ComingSoonPopover from "@/components/ComingSoonPopover";
 import InfoLink from "@/components/InfoLink";
 
 function EmptyTableText({ children }: { children: string }) {
@@ -33,7 +35,11 @@ export function AcceleratedRecoveryTab() {
           variant="h2"
           info={<InfoLink topic="acceleratedRecovery" />}
           description="Enable the accelerated recovery option to ensure that you can continue to make changes to your public DNS records after an impairment to US East (N. Virginia)."
-          actions={<Button>Enable</Button>}
+          actions={
+            <ComingSoonPopover feature="Accelerated recovery">
+              <Button>Enable</Button>
+            </ComingSoonPopover>
+          }
         >
           Accelerated recovery
         </Header>
@@ -51,7 +57,15 @@ export function DnssecSigningTab() {
     <SpaceBetween size="l">
       <Container
         header={
-          <Header variant="h2" info={<InfoLink topic="dnssecSigning" />} actions={<Button>Enable DNSSEC signing</Button>}>
+          <Header
+            variant="h2"
+            info={<InfoLink topic="dnssecSigning" />}
+            actions={
+              <ComingSoonPopover feature="DNSSEC signing">
+                <Button>Enable DNSSEC signing</Button>
+              </ComingSoonPopover>
+            }
+          >
             DNSSEC signing
           </Header>
         }
@@ -89,7 +103,9 @@ export function DnssecSigningTab() {
             actions={
               <SpaceBetween direction="horizontal" size="xs">
                 <Button disabled>View details</Button>
-                <Button>Switch to advanced view</Button>
+                <ComingSoonPopover feature="DNSSEC signing">
+                  <Button>Switch to advanced view</Button>
+                </ComingSoonPopover>
               </SpaceBetween>
             }
           >
@@ -114,7 +130,14 @@ export function ZoneTagsTab() {
       ]}
       sortingColumn={{ sortingField: "key" }}
       header={
-        <Header variant="h2" actions={<Button>Manage tags</Button>}>
+        <Header
+          variant="h2"
+          actions={
+            <ComingSoonPopover feature="Tags">
+              <Button>Manage tags</Button>
+            </ComingSoonPopover>
+          }
+        >
           Tags
         </Header>
       }

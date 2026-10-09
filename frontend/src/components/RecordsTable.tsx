@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 
 import TablePreferences, { SearchModeDescription, type TablePreferencesValue } from "@/components/TablePreferences";
+import ComingSoonPopover from "@/components/ComingSoonPopover";
 import InfoLink from "@/components/InfoLink";
 import type { DnsRecord } from "@/lib/api";
 import { isProtectedRecord } from "@/lib/records";
@@ -267,7 +268,9 @@ export default function RecordsTable({
                   <Button disabled={selectedItems.length === 0 || selectsProtected} onClick={onDeleteSelected}>
                     Delete record
                   </Button>
-                  <Button>Import zone file</Button>
+                  <ComingSoonPopover feature="Import zone file">
+                    <Button>Import zone file</Button>
+                  </ComingSoonPopover>
                   <Button
                     variant="primary"
                     href={createHref}
@@ -287,38 +290,36 @@ export default function RecordsTable({
           </Header>
         }
         filter={
-          <div className={styles.container}>
-            <div className={styles.filters}>
-              <div className={styles.search}>
-                <PropertyFilter
-                  {...propertyFilterProps}
-                  filteringProperties={FILTERING_PROPERTIES}
-                  i18nStrings={{ enteredTextLabel: (text) => `Use: ${text}` }}
-                  filteringPlaceholder="Filter records by property or value"
-                  filteringAriaLabel="Filter records"
-                  countText={countText}
-                  expandToViewport
-                />
-              </div>
-              <div className={styles.dropdowns}>
-                {DROPDOWN_FILTERS.map(({ key, placeholder, options, searchable }) => {
-                  const value = equalsToken(key)?.value;
-                  return (
-                    <div key={key} className={styles.dropdown}>
-                      <Select
-                        placeholder={placeholder}
-                        ariaLabel={`Filter by ${placeholder.toLowerCase()}`}
-                        options={options}
-                        selectedOption={options.find((option) => option.value === value) ?? null}
-                        onChange={({ detail }) => chooseDropdownValue(key, detail.selectedOption.value ?? "")}
-                        filteringType={searchable ? "auto" : "none"}
-                        expandToViewport
-                      />
-                    </div>
-                  );
-                })}
-                {countText && <span className={styles.matchCount}>{countText}</span>}
-              </div>
+          <div className={styles.filters}>
+            <div className={styles.search}>
+              <PropertyFilter
+                {...propertyFilterProps}
+                filteringProperties={FILTERING_PROPERTIES}
+                i18nStrings={{ enteredTextLabel: (text) => `Use: ${text}` }}
+                filteringPlaceholder="Filter records by property or value"
+                filteringAriaLabel="Filter records"
+                countText={countText}
+                expandToViewport
+              />
+            </div>
+            <div className={styles.dropdowns}>
+              {DROPDOWN_FILTERS.map(({ key, placeholder, options, searchable }) => {
+                const value = equalsToken(key)?.value;
+                return (
+                  <div key={key} className={styles.dropdown}>
+                    <Select
+                      placeholder={placeholder}
+                      ariaLabel={`Filter by ${placeholder.toLowerCase()}`}
+                      options={options}
+                      selectedOption={options.find((option) => option.value === value) ?? null}
+                      onChange={({ detail }) => chooseDropdownValue(key, detail.selectedOption.value ?? "")}
+                      filteringType={searchable ? "auto" : "none"}
+                      expandToViewport
+                    />
+                  </div>
+                );
+              })}
+              {countText && <span className={styles.matchCount}>{countText}</span>}
             </div>
           </div>
         }

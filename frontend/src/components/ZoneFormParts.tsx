@@ -2,12 +2,15 @@
 
 // Pieces shared by the Create and Edit hosted zone pages.
 
-import AttributeEditor from "@cloudscape-design/components/attribute-editor";
+import Box from "@cloudscape-design/components/box";
+import Button from "@cloudscape-design/components/button";
 import Container from "@cloudscape-design/components/container";
 import FormField from "@cloudscape-design/components/form-field";
 import Header from "@cloudscape-design/components/header";
+import SpaceBetween from "@cloudscape-design/components/space-between";
 import Textarea from "@cloudscape-design/components/textarea";
 
+import ComingSoonPopover from "@/components/ComingSoonPopover";
 import InfoLink from "@/components/InfoLink";
 
 export const DESCRIPTION_MAX_LENGTH = 256;
@@ -48,8 +51,9 @@ export function DescriptionField({ value, onChange, errorText }: DescriptionFiel
 }
 
 /**
- * The Tags section. Tags aren't implemented yet, so it always shows the console's
- * empty state and "Add tag" does nothing.
+ * The Tags section. Tags aren't implemented, so it shows the console's empty state
+ * (the AttributeEditor layout: message, "Add tag", limit), and "Add tag" opens the
+ * "not available" popover.
  */
 export function TagsSection() {
   return (
@@ -64,18 +68,17 @@ export function TagsSection() {
         </Header>
       }
     >
-      <AttributeEditor
-        items={[]}
-        // Never rendered (there are no rows), but AttributeEditor needs its columns.
-        definition={[
-          { label: "Key", control: () => null },
-          { label: "Value - optional", control: () => null },
-        ]}
-        empty="No tags associated with the resource."
-        addButtonText="Add tag"
-        additionalInfo="You can add up to 50 more tags."
-        onAddButtonClick={() => {}}
-      />
+      <SpaceBetween size="m">
+        <Box color="text-status-inactive">No tags associated with the resource.</Box>
+        <div>
+          <ComingSoonPopover feature="Tags">
+            <Button>Add tag</Button>
+          </ComingSoonPopover>
+          <Box variant="small" display="block" color="text-body-secondary" padding={{ top: "xxs" }}>
+            You can add up to 50 more tags.
+          </Box>
+        </div>
+      </SpaceBetween>
     </Container>
   );
 }

@@ -3,16 +3,11 @@
  * (with its tokens underneath) and the three dropdowns sit side by side, and wrap onto
  * separate lines when space runs out.
  *
- * The console switches at viewport widths of 1508px and 1152px. Here the split panel also
- * takes space, so the switches use the filter's own width instead (container queries).
- * 1110px is what the filter measures at a 1508px viewport with the navigation open; the
- * stacking point is 900px (not the console's ~750px) so the search box never gets
- * narrower than about 450px while the dropdowns sit beside it.
+ * Breakpoints are the console's viewport widths, 1508px and 1152px. Like the console,
+ * they ignore the split panel: at 1847px with the panel open the dropdowns stay beside
+ * a ~345px search box (screenshots 06, 07). (Phase 3 used the filter's own width and
+ * stacked below 900px; reversed in Phase 5.3, see DECISIONS.md.)
  */
-.container {
-  container-type: inline-size;
-}
-
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -50,13 +45,13 @@
   white-space: nowrap;
 }
 
-@container (max-width: 1110px) {
+@media (max-width: 1508px) {
   .filters {
     margin-right: 0;
   }
 }
 
-@container (max-width: 900px) {
+@media (max-width: 1152px) {
   .search {
     flex-basis: 100%;
     margin-bottom: 1rem;
