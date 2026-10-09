@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from dns_names import dns_order
 from models import DnsRecord, HostedZone
@@ -135,8 +135,20 @@ class RecordOut(BaseModel):
 # can only be edited.
 CreatableRecordType = Literal["A", "AAAA", "CAA", "CNAME", "MX", "NS", "PTR", "SRV", "TXT"]
 Ttl = Annotated[int, Field(ge=0, le=MAX_INT32)]
+
+
+def _at_least_one_value(values: list[str]) -> list[str]:
+    # Instead of Field(min_length=1), whose message ("List should have at least 1
+    # item after validation, not 0") would end up in the console's error banner.
+    if not values:
+        raise ValueError("Enter at least one value.")
+    return values
+
+
 # 4000 characters: Route 53's limit for one value (a TXT record's strings together).
-RecordValues = Annotated[list[Annotated[str, Field(max_length=4000)]], Field(min_length=1)]
+RecordValues = Annotated[
+    list[Annotated[str, Field(max_length=4000)]], AfterValidator(_at_least_one_value)
+]
 
 
 class RecordCreate(BaseModel):

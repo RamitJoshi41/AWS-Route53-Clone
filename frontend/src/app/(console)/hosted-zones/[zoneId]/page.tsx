@@ -67,6 +67,7 @@ export default function HostedZoneDetailsPage({ params }: PageProps<"/hosted-zon
       content: (
         <RecordsTable
           zoneName={zone.name}
+          createHref={`${LIST_HREF}/${zone.id}/create-record`}
           records={zone.records}
           loading={zoneQuery.isFetching}
           onRefresh={() => zoneQuery.refetch()}

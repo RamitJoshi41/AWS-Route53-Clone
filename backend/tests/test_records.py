@@ -166,7 +166,7 @@ def test_name_outside_the_zone_is_400(logged_in_client: TestClient, zone: dict) 
     ("body", "detail_start"),
     [
         ({"records": []}, "records: List should have at least 1 item"),
-        ({"records": [rec(values=[])]}, "records.0.values: List should have at least 1 item"),
+        ({"records": [rec(values=[])]}, "records.0.values: Enter at least one value."),
         ({"records": [rec(ttl=-1)]}, "records.0.ttl: Input should be greater than or equal to 0"),
         ({"records": [rec(ttl=2147483648)]}, "records.0.ttl: Input should be less than or equal to 2147483647"),
         ({"records": [{**rec(), "alias": True}]}, "records.0.alias: Extra inputs are not permitted"),

@@ -1,0 +1,29 @@
+/* The record form's compound fields, measured from the console (screenshots 04, Creating_Multiple_REcords). */
+
+/* Record name: the input takes about half the column, followed by ".zone-name". */
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nameInput {
+  flex: 0 1 50%;
+  min-width: 8rem;
+}
+
+.zoneSuffix {
+  overflow-wrap: anywhere;
+}
+
+/* TTL: the input fills the row, the 1m / 1h / 1d buttons follow it. */
+.ttlRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ttlInput {
+  flex: 1 1 auto;
+  min-width: 6rem;
+}

@@ -245,7 +245,7 @@ All endpoints require a session. They first look up the zone exactly like `GET /
 | `name` | Fully qualified, normalized: lowercase, one trailing dot. `*.example.com.` is a wildcard record. |
 | `type` | `A`, `AAAA`, `CAA`, `CNAME`, `MX`, `NS`, `PTR`, `SRV`, `TXT`, or `SOA` (created with the zone; it can be edited but not created or deleted) |
 | `ttl` | Seconds, 0–2147483647 |
-| `values` | One string per value, in the type's standard text form: what the console's Value box takes, one per line |
+| `values` | One string per value, in the type's standard text form: what the console's Value box takes, one per line. At least one (`values: Enter at least one value.`) |
 
 Every record uses the **Simple** routing policy and is not an alias. Other routing policies, alias records and health checks aren't implemented.
 

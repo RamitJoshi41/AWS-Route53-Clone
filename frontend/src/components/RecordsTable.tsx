@@ -9,6 +9,7 @@ import PropertyFilter, { type PropertyFilterProps } from "@cloudscape-design/com
 import Select, { type SelectProps } from "@cloudscape-design/components/select";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import Table, { type TableProps } from "@cloudscape-design/components/table";
+import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 
 import TablePreferences, { SearchModeDescription, type TablePreferencesValue } from "@/components/TablePreferences";
@@ -171,9 +172,16 @@ type Props = {
   onSelectionChange: (ids: number[]) => void;
   /** "Delete record" for the selection; the confirmation dialog arrives with record deletion. */
   onDeleteSelected?: () => void;
+  /** Where "Create record" leads. */
+  createHref?: string;
+  /**
+   * The create page's "Existing records" table (screenshot 05): the same table, titled
+   * differently and without the action buttons.
+   */
+  readOnly?: boolean;
 };
 
-/** The "Records" tab of a hosted zone. */
+/** A hosted zone's records: its "Records" tab, and "Existing records" on the create page. */
 export default function RecordsTable({
   zoneName,
   records,
@@ -182,7 +190,10 @@ export default function RecordsTable({
   selectedIds,
   onSelectionChange,
   onDeleteSelected,
+  createHref,
+  readOnly = false,
 }: Props) {
+  const router = useRouter();
   const rows = useMemo(() => records.map(toRecordRow), [records]);
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
   // Lets "To change modes go to settings." find the table's Preferences button.
@@ -250,17 +261,29 @@ export default function RecordsTable({
               )
             }
             actions={
-              <SpaceBetween direction="horizontal" size="xs">
-                <Button iconName="refresh" ariaLabel="Refresh records" loading={loading} onClick={onRefresh} />
-                <Button disabled={selectedItems.length === 0 || selectsProtected} onClick={onDeleteSelected}>
-                  Delete record
-                </Button>
-                <Button>Import zone file</Button>
-                <Button variant="primary">Create record</Button>
-              </SpaceBetween>
+              !readOnly && (
+                <SpaceBetween direction="horizontal" size="xs">
+                  <Button iconName="refresh" ariaLabel="Refresh records" loading={loading} onClick={onRefresh} />
+                  <Button disabled={selectedItems.length === 0 || selectsProtected} onClick={onDeleteSelected}>
+                    Delete record
+                  </Button>
+                  <Button>Import zone file</Button>
+                  <Button
+                    variant="primary"
+                    href={createHref}
+                    onFollow={(event) => {
+                      if (!createHref) return;
+                      event.preventDefault();
+                      router.push(createHref);
+                    }}
+                  >
+                    Create record
+                  </Button>
+                </SpaceBetween>
+              )
             }
           >
-            Records
+            {readOnly ? "Existing records" : "Records"}
           </Header>
         }
         filter={
