@@ -49,11 +49,17 @@
   color: #ff9900;
 }
 
+/* Full bar height, so the search panel can hang flush under the bar. */
 .search {
   display: flex;
   flex: 1 1 auto;
+  align-self: stretch;
   min-width: 0;
   margin-left: 8px;
+}
+
+.start {
+  align-self: stretch;
 }
 
 .region {

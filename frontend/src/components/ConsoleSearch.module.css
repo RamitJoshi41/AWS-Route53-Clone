@@ -1,6 +1,20 @@
-.search {
+/*
+ * The console's search panel, measured from screenshots Console Search,
+ * knowledge_SHow_more and Search_No_Results (taken at about 79% zoom; the values
+ * here are at 100%). The root stretches to the bar's full height, so the panel
+ * (top: 100%) hangs flush under the bar, starting at the search box's left edge.
+ */
+.root {
   position: relative;
+  display: flex;
+  align-items: center;
   flex: 0 1 540px;
+  min-width: 0;
+  height: 100%;
+}
+
+.root > :first-child {
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -13,4 +27,165 @@
   pointer-events: none;
   font-size: 12px;
   color: #b4b4bb;
+  white-space: nowrap;
+}
+
+.panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  width: 952px;
+  height: calc(100vh - 52px - 34px - 20px);
+  background: #1b232d;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 4px 20px 1px rgba(0, 7, 22, 0.5);
+  color: #dedee3;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.columns {
+  display: flex;
+  height: 100%;
+}
+
+/* The category list on the left, with a line along it and a blue mark on the active one. */
+.categories {
+  flex: 0 0 auto;
+  width: 184px;
+  margin: 0;
+  padding: 72px 20px 0 20px;
+  list-style: none;
+}
+
+.category {
+  display: block;
+  width: 100%;
+  padding: 2px 0 2px 12px;
+  border: 0;
+  border-left: 2px solid #424650;
+  background: none;
+  color: #dedee3;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.category[aria-current="true"] {
+  border-left-color: #42b4ff;
+  color: #42b4ff;
+  font-weight: 700;
+}
+
+.category:hover {
+  color: #42b4ff;
+}
+
+.results {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 24px 32px 24px 20px;
+}
+
+.section + .section {
+  margin-top: 32px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
+.caption {
+  margin: 0 0 20px;
+  font-size: 13px;
+}
+
+.textButton {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #42b4ff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.textButton:hover {
+  text-decoration: underline;
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Keyboard (and mouse) highlight: the card's border turns blue, as in the console. */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px;
+  border: 1px solid #424650;
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.card[data-highlighted] {
+  border-color: #42b4ff;
+  box-shadow: inset 0 0 0 1px #42b4ff;
+}
+
+.cardTitle {
+  color: #42b4ff;
+  font-weight: 700;
+}
+
+.cardDetail {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #c6c6cd;
+}
+
+/* The small coloured square before "<service> feature": Route 53's networking purple. */
+.featureMark {
+  width: 8px;
+  height: 8px;
+  background: #8c4fff;
+}
+
+.noResults {
+  padding: 36px 36px;
+}
+
+.noResultsText {
+  margin: 0 0 16px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
 }
